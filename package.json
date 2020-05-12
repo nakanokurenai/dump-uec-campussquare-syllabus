@@ -1,0 +1,22 @@
+{
+  "name": "dump-webclass-syllabus",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "ssh://git@github.com/nakanokurenai/dump-webclass-syllabus.git",
+  "author": "otofune <otofune@otofune.me>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/jsdom": "^16.2.1",
+    "html-escaper": "^3.0.0",
+    "iconv-lite": "^0.5.1",
+    "jsdom": "^16.2.2",
+    "node-fetch": "^2.6.0",
+    "tough-cookie": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/iconv-lite": "^0.0.1",
+    "@types/node-fetch": "^2.5.7",
+    "ts-node": "^8.10.1",
+    "typescript": "^3.8.3"
+  }
+}
