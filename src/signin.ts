@@ -12,7 +12,8 @@ import { readFileSync, writeFileSync } from 'fs'
 type ArgumentsOf<T extends Function> = T extends (...args: infer T) => any
   ? T
   : void;
-type Fetch = (
+
+export type Fetch = (
   info: RequestInfo,
   init?: Omit<RequestInit, "headers"> & {
     headers?: { [k: string]: string };
@@ -162,7 +163,7 @@ export const isLoggedIn = async (fetch: Fetch) => {
   return (new URL(sso.url)).hostname === 'campusweb.office.uec.ac.jp'
 }
 
-export const login = async (fetch: Fetch, username: string, password: string, mfaCode?: number) => {
+export const login = async (fetch: Fetch, username: string, password: string, mfaCodePrompt?: () => Promise<number>) => {
   const url = new URL(CAMPUS_SQUARE_SSO_ROOT)
 
   const sso = await fetch(url, {
@@ -189,10 +190,11 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     credentials: 'includes'
   })
 
-  if (resp.url.includes('https://shibboleth.cc.uec.ac.jp/mfa/MFAuth.php')) {
-    if (!mfaCode) {
-      throw new Error('二段階認証が必要なので、引数が足りてません')
+  if (resp.url.includes('/mfa/MFAuth.php')) {
+    if (!mfaCodePrompt) {
+      throw new Error('二段階認証が必要です。引数が足りていません')
     }
+    const mfaCode = await mfaCodePrompt()
     const { window: { document } } = new JSDOM(await resp.text())
     const mfaForm = document.forms[0]
     const mfaInput = convertFormElementsToPlainKeyValueObject(mfaForm, { submitName: 'login' })
