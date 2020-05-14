@@ -3,7 +3,7 @@ import { JSDOM } from 'jsdom'
 import fetch, { Response, RequestInfo, RequestInit } from "node-fetch";
 import toughCookie from "tough-cookie";
 
-import { convertFormElementsToPlainObject } from './util'
+import { convertFormElementsToPlainKeyValueObject } from './util'
 
 import { resolve } from 'url'
 
@@ -169,10 +169,14 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     credentials: 'includes',
   })
 
+  if ((new URL(sso.url)).hostname !== 'shibboleth.cc.uec.ac.jp') {
+    throw new Error('shibboleth にリダイレクトされませんでした。もうログイン済みかもしれません')
+  }
+
   const { window: { document } } = new JSDOM(await sso.text())
   const form = document.forms[0]
 
-  const input = convertFormElementsToPlainObject(form)
+  const input = convertFormElementsToPlainKeyValueObject(form)
   input['j_username'] = username
   input['j_password'] = password
 
@@ -184,13 +188,14 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     },
     credentials: 'includes'
   })
-  if (resp.url.includes('/mfa/MFAuth.php')) {
+
+  if (resp.url.includes('https://shibboleth.cc.uec.ac.jp/mfa/MFAuth.php')) {
     if (!mfaCode) {
       throw new Error('二段階認証が必要なので、引数が足りてません')
     }
     const { window: { document } } = new JSDOM(await resp.text())
     const mfaForm = document.forms[0]
-    const mfaInput = convertFormElementsToPlainObject(mfaForm, { submitName: 'login' })
+    const mfaInput = convertFormElementsToPlainKeyValueObject(mfaForm, { submitName: 'login' })
     mfaInput['authcode'] = mfaCode.toString(10)
     resp = await fetch(resolve(resp.url, mfaForm.action), {
       method: 'post',
@@ -212,7 +217,7 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
   const redirectForm = redirectDocument.forms[0]
   const redirectResp = await fetch(resolve(resp.url, redirectForm.action), {
     method: 'post',
-    body: new URLSearchParams(convertFormElementsToPlainObject(redirectForm)).toString(),
+    body: new URLSearchParams(convertFormElementsToPlainKeyValueObject(redirectForm)).toString(),
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
     },

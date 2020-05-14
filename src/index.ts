@@ -2,13 +2,35 @@ import * as signin from './signin'
 import { JSDOM } from 'jsdom'
 
 import { resolve } from 'url'
-import { convertFormElementsToPlainObject } from './util'
+import { convertFormElementsToPlainKeyValueObject } from './util'
 
 import { writeFileSync } from 'fs'
 
+const question = (question: string) => new Promise<string>((res, rej) => {
+  process.stdout.write(question)
+  if (!process.stdin.readable) return rej('not readable.')
+  let all: string = ''
+  while (process.stdin.read()) {
+    process.stdin.readable
+  }
+  const onData = (chunk: Buffer) => {
+    all += chunk
+    if (all.includes('\n')) {
+      onEnd()
+    }
+  }
+  const onEnd = () => {
+    process.stdin.removeListener('data', onData)
+    process.stdin.removeListener('end', onEnd)
+    res(all.trim())
+  }
+  process.stdin.on('data', onData)
+  process.stdin.on('end', onEnd)
+})
+
 const loadEnv = () => {
-  const { DWS_USERNAME, DWS_PASSWORD } = process.env
-  const env = { DWS_PASSWORD, DWS_USERNAME }
+  const { DUS_USERNAME, DUS_PASSWORD } = process.env
+  const env = { DUS_USERNAME, DUS_PASSWORD }
   Object.entries(env).forEach(([k, v]) => {
     if (!v) {
       console.error(`key ${k} is missing`)
@@ -23,19 +45,9 @@ async function main() {
   const session = signin.createSession()
 
   // ログインが必要ならする
-  if (!await (signin.isLoggedIn(session))) {
-    process.stdout.write('You must to sign in. Input your MFA code: ')
-    const mfaPin = await (() => new Promise<number>(res => {
-      process.stdin.setEncoding('utf8')
-      let all: string = ''
-      process.stdin.on('data', chunk => {
-        all += chunk
-      })
-      process.stdin.on('end', () => {
-        res(Number.parseInt(all.trim()))
-      });
-    }))()
-    await signin.login(session, env.DWS_USERNAME, env.DWS_PASSWORD, mfaPin)
+  if (!(await signin.isLoggedIn(session))) {
+    const mfaPin = await question('You must to sign in. Input your MFA code: ')
+    await signin.login(session, env.DUS_USERNAME, env.DUS_PASSWORD, Number.parseInt(mfaPin))
     await signin.exportSession(session)
   }
 
@@ -67,7 +79,7 @@ async function main() {
     const linkForm = Array.from(menuDocument.forms).find(f => f.name === 'linkForm')
     console.dir(linkForm)
     if (!linkForm) return
-    const input = convertFormElementsToPlainObject(linkForm)
+    const input = convertFormElementsToPlainKeyValueObject(linkForm)
     input._flowId = flowID
     const doURL = resolve(menuURL, linkForm.action)
     console.log(doURL)
@@ -92,14 +104,16 @@ async function main() {
 
   const jikanwariSearchForm = syllabusSearchDocument.getElementById('jikanwariSearchForm')! as HTMLFormElement
   // 検索条件を決定する
-  const jikanwariSearchFormInput = convertFormElementsToPlainObject(jikanwariSearchForm, {
+  const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, {
     selectByOptionInnerText: {
       'nenji': '2年',
       'jikanwariShozokuCode': '情報理工学域夜間主コース',
-      'gakkiKubunCode': '前学期'
+      'gakkiKubunCode': '前学期',
+      '_displayCount': '200'
     }
   })
 
+  // FIXME: ページングに対応していない
   const searchResult = await session(resolve(syllabusSearchPage.url, jikanwariSearchForm.action), {
     method: jikanwariSearchForm.method,
     body: new URLSearchParams(jikanwariSearchFormInput).toString(),
@@ -139,9 +153,10 @@ async function main() {
   const data = await Promise.all(tables.map(({ 参照 }) => {
     const onclick = 参照.getAttribute('onclick')!
     if (!onclick.startsWith('refer(')) throw new Error(`参照ボタンの onclick が期待と違います: ${onclick}`)
-    const refer = (nendo: string, jscd: string, jcd: string, locale: string, displayCount: string) => {
+    // eval で呼ばれるやつ
+    const refer = (nendo: string, jscd: string, jcd: string, locale: string) => {
       const jikanwariInputForm = searchResultDocument.getElementById('jikanwariInputForm')! as HTMLFormElement
-      const jikanwariInputInput = convertFormElementsToPlainObject(jikanwariInputForm)
+      const jikanwariInputInput = convertFormElementsToPlainKeyValueObject(jikanwariInputForm)
       jikanwariInputInput.nendo = nendo;
       jikanwariInputInput.jikanwariShozokuCode = jscd;
       jikanwariInputInput.jikanwaricd = jcd;
@@ -155,6 +170,7 @@ async function main() {
         credentials: 'includes',
       })
     }
+    // FIXME: 本当は eval 使いたくない
     return (eval(onclick) as Promise<Response>).then(r => r.text())
   }))
 

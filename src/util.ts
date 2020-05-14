@@ -1,4 +1,4 @@
-export const convertFormElementsToPlainObject = (form: HTMLFormElement, { submitName, selectByOptionInnerText: select }: { submitName?: string, selectByOptionInnerText?: Record<string, string> } = {}): Record<string, string> => {
+export const convertFormElementsToPlainKeyValueObject = (form: HTMLFormElement, { submitName, selectByOptionInnerText: select }: { submitName?: string, selectByOptionInnerText?: Record<string, string> } = {}): Record<string, string> => {
   const elements = Array.from(form.elements) as HTMLInputElement[]
   return elements.reduce((acc, el) => {
     if (['select-one', 'select-multiple'].includes(el.type) && select && el.name in select) {
