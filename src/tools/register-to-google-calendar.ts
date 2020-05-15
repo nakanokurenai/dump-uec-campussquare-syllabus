@@ -174,18 +174,6 @@ const calculateCalendarFromJigen = (j: string[]): Cal => {
 }
 
 const main = async () => {
-  const courses = (await readSyllabus()).map(s => {
-    const jigen = s.digest["曜日・時限"].split(',').map(j => j.trim())
-    const 科目番号 = findPath(CODE_PATH, s.contentTree)
-    return {
-      ...s.digest,
-      "曜日・時限": jigen,
-      科目番号,
-      calendar: calculateCalendarFromJigen(jigen),
-      description: convertContentTreeToMarkdown(s.contentTree as any),
-    }
-  })
-
   const oauth2Client = new googleapis.google.auth.OAuth2(
     CLIENT_ID,
     CLIENT_SECRET,
@@ -213,6 +201,20 @@ const main = async () => {
 
   if (!calendarId) throw new Error('ないんだけど？')
   console.log(calendarId)
+
+  const courses = (await readSyllabus()).map(s => {
+    // note: スキップされた科目 (R2 K過程 前期 美術) が他になっていた
+    if (s.digest["曜日・時限"] === '他') return
+    const jigen = s.digest["曜日・時限"].split(',').map(j => j.trim())
+    const 科目番号 = findPath(CODE_PATH, s.contentTree)
+    return {
+      ...s.digest,
+      "曜日・時限": jigen,
+      科目番号,
+      calendar: calculateCalendarFromJigen(jigen),
+      description: convertContentTreeToMarkdown(s.contentTree as any),
+    }
+  }).filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
 
   // TODO: 本当は学期の始まりの日から計算する
   const firstBaseDay = new Date('2020-05-16T00:00:00+09:00')
@@ -243,9 +245,7 @@ const main = async () => {
       recurrence: [
         course.calendar.reccurence,
       ],
-      // Markdown -> HTML
-      // Google cal は HTML を受けつけるので
-      description: `時間割コード: ${course.時間割コード}<br /><br />` + course.description.replace(/\n/g, '<br />'),
+      description: `時間割コード: ${course.時間割コード}\n\n` + course.description,
     }
 
     const eventResponse = await calendar.events.insert({
