@@ -45,7 +45,7 @@ async function main() {
   // ログインが必要ならする
   if (!(await signin.isLoggedIn(session))) {
     await signin.login(session, env.DUS_USERNAME, env.DUS_PASSWORD, async () => {
-      const mfaPin = await question('You must to sign in. Input your MFA code: ')
+      const mfaPin = await question('You must sign in. Input your MFA code: ')
       return Number.parseInt(mfaPin)
     })
     await signin.exportSession(session)

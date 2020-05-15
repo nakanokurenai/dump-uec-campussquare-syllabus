@@ -7,12 +7,14 @@
   "license": "MIT",
   "dependencies": {
     "@types/jsdom": "^16.2.1",
+    "googleapis": "^51.0.0",
     "html-escaper": "^3.0.0",
     "iconv-lite": "^0.5.1",
     "jsdom": "^16.2.2",
     "node-fetch": "^2.6.0",
     "sanitize-html": "^1.23.0",
-    "tough-cookie": "^4.0.0"
+    "tough-cookie": "^4.0.0",
+    "transform-ts": "^0.3.0"
   },
   "devDependencies": {
     "@types/iconv-lite": "^0.0.1",

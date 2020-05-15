@@ -136,6 +136,8 @@ export const search = async (session: Fetch, searchOption: Option) => {
 
   return tables.map(({参照, ...values}, i) => {
     return {
+      // TODO: 年情報を足す。検索条件に含めるようにする
+      year: 2020,
       digest: values,
       contentHTML: data[i],
     }

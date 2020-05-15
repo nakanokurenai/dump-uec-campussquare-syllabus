@@ -15,6 +15,7 @@ type SyllabusTableTree = {
 export type ContentTree = {
   title: string,
   content: { [key: string]: string } | null,
+  // JSON からパースするときにこれがない扱いにしたほうが楽なことがあり optional にしたほうがいいかも…
   children: ContentTree[]
 }
 
@@ -77,6 +78,6 @@ ${content ? '\n' + Object.entries(content).filter(([,value]) => value.trim()).ma
     )
   }
 ).join('\n') : ''}\
-${children.length ? '\n' + children.map(c => convertContentTreeToMarkdown(c, depth+1)).join('\n') : ''}
+${children && children.length ? '\n' + children.map(c => convertContentTreeToMarkdown(c, depth+1)).join('\n') : ''}
 `
 }
