@@ -11,7 +11,7 @@ const loadEnv = () => {
   const keys = ['CLIENT_ID', 'CLIENT_SECRET'] as const
   return keys.reduce((acc, k) => {
     const t = process.env[k]
-    if (!t) throw new Error()
+    if (!t) throw new Error(`Missing environment variable: ${k}`)
     acc[k] = t
     return acc
   }, {} as Env)
@@ -167,8 +167,9 @@ const calculateCalendarFromJigen = (j: string[]): Cal => {
   })
   return {
     ...schedule,
-    // TODO: 年 + 学期から期日を生成したい
-    reccurence: 'RRULE:FREQ=DAILY;INTERVAL=7',
+    // TODO: 年 + 学期から期日を生成したい, とりあえず2020年前期の終了日の 23:59 としている
+    // ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
+    reccurence: 'RRULE:FREQ=DAILY;INTERVAL=7;UNTIL=20200901T145959Z',
   }
 }
 
