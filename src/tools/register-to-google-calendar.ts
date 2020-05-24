@@ -1,5 +1,5 @@
 import $, { Transformer } from 'transform-ts'
-import { convertContentTreeToMarkdown } from '../content-parser'
+import { convertContentTreeToMarkdown } from '../campussquare/content-parser'
 import * as googleapis from 'googleapis'
 
 // env

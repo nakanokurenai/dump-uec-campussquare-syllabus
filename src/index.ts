@@ -1,8 +1,8 @@
-import * as signin from './signin'
+import * as signin from './campussquare/signin'
 
 import { writeFileSync } from 'fs'
-import { parseSyllabusPageHTML } from './content-parser'
-import { search } from './search'
+import { parseSyllabusPageHTML } from './campussquare/content-parser'
+import { search } from './campussquare/search'
 
 const question = (question: string) => new Promise<string>((res, rej) => {
   process.stdout.write(question)

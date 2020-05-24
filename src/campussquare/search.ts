@@ -1,9 +1,9 @@
 import { JSDOM } from 'jsdom'
 
 import { resolve } from 'url'
-import { convertFormElementsToPlainKeyValueObject } from './util'
+import { convertFormElementsToPlainKeyValueObject } from '../utils/dom'
 
-import type { Fetch } from './signin'
+import type { Fetch } from '../utils/baked-fetch'
 
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
