@@ -17,6 +17,20 @@ type Option = {
   [K: string]: string
 }
 
+// シラバスの個別ページにジャンプするためのデータ
+type ReferSyllabus = {
+  initForm: () => Record<string, string>,
+  digest: Record<string, string>,
+  method: string,
+  url: string,
+  options: {
+    nendo: string,
+    jikanwariShozokuCode: string,
+    jikanwaricd: string,
+    locale: string,
+  },
+}
+
 // 現時点でページングに非対応なので、検索条件は200件に収まる範囲にしてください
 // また、負荷低減手法を取り入れていないため問題があります
 export const search = async (session: Fetch, searchOption: Option) => {
@@ -66,6 +80,8 @@ export const search = async (session: Fetch, searchOption: Option) => {
 
   const jikanwariSearchForm = syllabusSearchDocument.getElementById('jikanwariSearchForm')! as HTMLFormElement
   // 検索条件を決定する
+  // TODO: option の中身を用いてバリデーションする
+  // TODO: フォームの name= が足りてるか確認したい
   const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, {
     selectByOptionInnerText: {
       ...searchOption,
@@ -110,36 +126,40 @@ export const search = async (session: Fetch, searchOption: Option) => {
     }, [] as (Record<string, string> & { '参照': HTMLInputElement })[])
   }
   const tables = parseSearchResultTable(searchResultTable)
-  const data = await Promise.all(tables.map(({ 参照 }) => {
+  return tables.map(({ 参照, ...digest }) => {
     const onclick = 参照.getAttribute('onclick')!
     if (!onclick.startsWith('refer(')) throw new Error(`参照ボタンの onclick が期待と違います: ${onclick}`)
     // eval で呼ばれるやつ
-    const refer = (nendo: string, jscd: string, jcd: string, locale: string) => {
+    const refer = (nendo: string, jscd: string, jcd: string, locale: string): ReferSyllabus => {
       const jikanwariInputForm = searchResultDocument.getElementById('jikanwariInputForm')! as HTMLFormElement
       const jikanwariInputInput = convertFormElementsToPlainKeyValueObject(jikanwariInputForm)
-      jikanwariInputInput.nendo = nendo;
-      jikanwariInputInput.jikanwariShozokuCode = jscd;
-      jikanwariInputInput.jikanwaricd = jcd;
-      jikanwariInputInput.locale = locale;
-      return session(resolve(searchResult.url, jikanwariInputForm.action), {
-        method: jikanwariInputForm.method,
-        body: new URLSearchParams(jikanwariInputInput).toString(),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+      const referSyllabus: ReferSyllabus = {
+        initForm: () => ({ ...jikanwariInputInput }),
+        digest,
+        options: {
+          nendo,
+          jikanwariShozokuCode: jscd,
+          jikanwaricd: jcd,
+          locale,
         },
-        credentials: 'includes',
-      })
+        method: jikanwariInputForm.method,
+        url: resolve(searchResult.url, jikanwariInputForm.action),
+      }
+      return referSyllabus
     }
     // FIXME: 本当は eval 使いたくない
-    return (eval(onclick) as Promise<Response>).then(r => r.text())
-  }))
-
-  return tables.map(({参照, ...values}, i) => {
-    return {
-      // TODO: 年情報を足す。検索条件に含めるようにする
-      year: 2020,
-      digest: values,
-      contentHTML: data[i],
-    }
+    return eval(onclick) as ReferSyllabus
   })
+}
+
+export const fetchSyllabusHTMLByRefer = async (session: Fetch, refer: ReferSyllabus) => {
+  const form = { ...refer.initForm(), ...refer.options }
+  return session(refer.url, {
+    method: refer.method,
+    body: new URLSearchParams(form).toString(),
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    credentials: 'includes',
+  }).then(r => r.text())
 }

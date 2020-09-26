@@ -1,8 +1,8 @@
-import * as signin from './campussquare/signin'
+import * as signin from './campussquare-syllabus/signin'
 
 import { writeFileSync } from 'fs'
-import { parseSyllabusPageHTML } from './campussquare/content-parser'
-import { search } from './campussquare/search'
+import { parseSyllabusPageHTML } from './campussquare-parser/syllabus'
+import { fetchSyllabusHTMLByRefer, search } from './campussquare-syllabus/search'
 
 const question = (question: string) => new Promise<string>((res, rej) => {
   process.stdout.write(question)
@@ -51,20 +51,25 @@ async function main() {
     await signin.exportSession(session)
   }
 
-  const searchResult = await search(session, {
-    'nenji': '2年',
-    'jikanwariShozokuCode': '情報理工学域夜間主コース',
-    'gakkiKubunCode': '前学期',
-  })
+  const list = await search(
+    session,
+    {
+      'nenji': '2年',
+      'jikanwariShozokuCode': '情報理工学域夜間主コース',
+      'gakkiKubunCode': '前学期',
+    }
+  )
+  const syllabusPages = await Promise.all(list.map(s => fetchSyllabusHTMLByRefer(session, s)))
 
   ;(() => {
     /* export it */
-    const exp = searchResult.map(({contentHTML, ...values}, i) => {
+    const exp = list.map((refer, i) => {
+      const contentHTML = syllabusPages[i]
       return {
-        ...values,
+        ...refer.digest,
         contentTree: (() => {
           try {
-            console.log(`Parsing ${i+1} / ${searchResult.length} …`)
+            console.log(`Parsing ${i+1} / ${list.length} …`)
             return parseSyllabusPageHTML(contentHTML)
           } catch (e) {
             console.error(e)
