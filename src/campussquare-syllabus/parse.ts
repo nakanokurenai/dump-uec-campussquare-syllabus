@@ -1,8 +1,3 @@
-/**
- * parser.ts
- * シラバスページのパース
- */
-
 import { JSDOM } from 'jsdom'
 import sanitize from 'sanitize-html'
 

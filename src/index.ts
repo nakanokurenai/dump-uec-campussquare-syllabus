@@ -1,7 +1,6 @@
-import * as signin from './campussquare-syllabus/signin'
-
 import { writeFileSync } from 'fs'
-import { parseSyllabusPageHTML } from './campussquare-parser/syllabus'
+import * as signin from './campussquare/signin'
+import { parseSyllabusPageHTML } from './campussquare-syllabus/parse'
 import { fetchSyllabusHTMLByRefer, search } from './campussquare-syllabus/search'
 
 const question = (question: string) => new Promise<string>((res, rej) => {
@@ -56,7 +55,7 @@ async function main() {
     {
       'nenji': '2年',
       'jikanwariShozokuCode': '情報理工学域夜間主コース',
-      'gakkiKubunCode': '前学期',
+      'gakkiKubunCode': '後学期',
     }
   )
   const syllabusPages = await Promise.all(list.map(s => fetchSyllabusHTMLByRefer(session, s)))

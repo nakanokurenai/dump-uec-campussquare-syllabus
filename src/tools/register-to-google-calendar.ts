@@ -1,5 +1,5 @@
 import $, { Transformer } from 'transform-ts'
-import { convertSyllabusTreeToMarkdown } from '../campussquare-parser/syllabus'
+import { convertSyllabusTreeToMarkdown } from '../campussquare-syllabus/parse'
 import * as googleapis from 'googleapis'
 
 // env
