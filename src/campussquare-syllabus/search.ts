@@ -1,9 +1,9 @@
 import { JSDOM } from 'jsdom'
-
 import { resolve } from 'url'
 import { convertFormElementsToPlainKeyValueObject } from '../utils/dom'
-
 import type { Fetch } from '../utils/baked-fetch'
+
+import { fetchFlowByMenu, fetchMenu, Menu } from '../campussquare/menu'
 
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
@@ -95,57 +95,14 @@ const listReferSyllabusInSearchPage = async function* (session: Fetch, document:
   }
 }
 
-const fetchMenuByFrameHTML = async (session: Fetch, baseURL: string, frameHTML: string) => {
-  // menu の URL を探す
-  const { window: { document } } = new JSDOM(frameHTML)
-  const frameSrc = document.querySelector('frame[name=menu]')!.getAttribute('src')!
-  const menuURL = resolve(baseURL, frameSrc)
-  // menu は utf-8
-  return session(menuURL, { credentials: 'includes' })
-}
-const fetchFlowByMenuHTML = async (session: Fetch, baseURL: string, menuHTML: string, flowName: string) => {
-  // menu は utf-8
-  const { window: { document: menuDocument } } = new JSDOM(menuHTML)
+const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => {
+  const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
+  const syllabusSearchPageHTML = await syllabusSearchPage.text()
+  const { window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
 
-  const extractFlowID = (name: string) => {
-    const s = menuDocument.querySelector(`span[title="${name}"]`)
-    if (!s) return
-    const a = s.parentElement!
-    var onclick = a.getAttribute('onclick')
-    if (!onclick) return
-    if (!onclick.trim().startsWith('moveFunc(')) return
-    const flowId = onclick.trim().slice(10).split(',')[0].slice(0, -1)
-    console.log(`${name} -> ${flowId}`)
-    return flowId
-  }
-  const getByFlowID = (flowID: string) => {
-    const linkForm = Array.from(menuDocument.forms).find(f => f.name === 'linkForm')
-    if (!linkForm) throw new Error('linkForm が見付かりませんでした. 指定された flowID へ遷移できません')
-    const input = convertFormElementsToPlainKeyValueObject(linkForm)
-    input._flowId = flowID
-    const doURL = resolve(baseURL, linkForm.action)
-    return session(doURL, {
-      method: linkForm.method,
-      body: new URLSearchParams(input).toString(),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      credentials: 'includes',
-    })
-  }
-  const flowID = extractFlowID(flowName)!
-  if (!flowID) throw new Error(`メニュー内に ${flowName} に紐付くパスが存在しない`)
-  return getByFlowID(flowID)
-}
-
-const searchSyllabusSearchForm = async (session: Fetch, baseURL: string, menuHTML: string, options: Record<string, string>) => {
-  const syllabusSearchForm = await fetchFlowByMenuHTML(session, baseURL, menuHTML, 'シラバス参照')
-  const syllabusSearchFormHTML = await syllabusSearchForm.text()
-  const { window: { document: syllabusSearchFormDocument } } = new JSDOM(syllabusSearchFormHTML)
-
-  const jikanwariSearchForm = syllabusSearchFormDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
+  const jikanwariSearchForm = syllabusSearchPageDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
   if (!jikanwariSearchForm) {
-    console.error(syllabusSearchFormHTML)
+    console.error(syllabusSearchPageHTML)
     throw new Error('時間割検索フォームがみあたりません')
   }
   // 検索条件を決定する
@@ -153,7 +110,7 @@ const searchSyllabusSearchForm = async (session: Fetch, baseURL: string, menuHTM
   // TODO: フォームの name= が足りてるか確認したい
   const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, { selectByOptionInnerText: options })
 
-  return session(resolve(syllabusSearchForm.url, jikanwariSearchForm.action), {
+  return session(resolve(syllabusSearchPage.url, jikanwariSearchForm.action), {
     method: jikanwariSearchForm.method,
     body: new URLSearchParams(jikanwariSearchFormInput).toString(),
     headers: {
@@ -163,29 +120,20 @@ const searchSyllabusSearchForm = async (session: Fetch, baseURL: string, menuHTM
   })
 }
 
-// ReferSyllabus を async yield*
 export const search = async function* (session: Fetch, searchOption: Option) {
-  const frame = await session('https://campusweb.office.uec.ac.jp/campusweb/ssologin.do', { credentials: 'includes' })
-  if (!((new URL(frame.url)).hostname === 'campusweb.office.uec.ac.jp')) throw new Error('ログインしてから呼び出してください')
-  const frameHTML = await frame.text()
+  const menu = await fetchMenu(session)
 
-  // menu を探す
-  const menu = await fetchMenuByFrameHTML(session, frame.url, frameHTML)
-  const menuHTML = await menu.text()
-
-  /**
-   * シラバスを検索!!!!
-   */
   // memo: 一気に取ってこようとしても「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページを進めるたびに読み直す
   const displayCount = 20
-  const searchResult = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
+  const search = () => searchSyllabusSearchForm(session, menu, {
     // FIXME: 型 :(
     ...(searchOption as any),
     '_displayCount': displayCount.toString(10)
   })
+  const searchResult = await search()
   const searchResultText = await searchResult.text()
   const { window: { document: searchResultDocument } } = new JSDOM(searchResultText)
-  // ページングする前に返却
+  // memo: 1ページ目はページング不要なのでさきに返却する
   for await (const refer of listReferSyllabusInSearchPage(session, searchResultDocument, searchResult.url, searchResultText)) {
     yield refer
   }
@@ -210,20 +158,15 @@ export const search = async function* (session: Fetch, searchOption: Option) {
   }
 
   // ページングを全部取得する
-  // 問題として、ページングを取得するためには再度取得しなければならないので、件数を持っておく
   const syllabusCount = parseResultCount(searchResultDocument)
   const pageCount = Math.ceil(syllabusCount / displayCount)
   console.log(`fetching ${syllabusCount} syllabuses (from ${pageCount} pages)`)
-  // memo: 1ページ目はすでに返却済みなので2から
+  // memo: 1ページ目はすでに返却済みなので2から、1-indexed なのはページングのリンクに書かれている human-friendly なページ数と合わせるため
   for (let cp = 2; cp <= pageCount; cp++) {
     console.log(`Move to page ${cp} / ${pageCount}`)
     // 「ページの有効期限が過ぎています。」などと言われてしまうのでページングを進めるたびに読み直し、該当ページのリンクを取得するまでページを動かす
     const nextPageUrl = await (async (targetPage: number) => {
-      const searchResultAgain = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
-        // FIXME: 型
-        ...(searchOption as any),
-        '_displayCount': displayCount.toString(10)
-      })
+      const searchResultAgain = await search()
       let currentPage = await searchResultAgain.text()
       let i = 0
       while (true) {
