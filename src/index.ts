@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs'
 import * as signin from './campussquare/signin'
 import { parseSyllabusPageHTML } from './campussquare-syllabus/parse'
-import { fetchSyllabusHTMLByRefer, search } from './campussquare-syllabus/search'
+import { fetchSyllabusHTMLByRefer, ReferSyllabus, search } from './campussquare-syllabus/search'
 
 const question = (question: string) => new Promise<string>((res, rej) => {
   process.stdout.write(question)
@@ -50,32 +50,37 @@ async function main() {
     await signin.exportSession(session)
   }
 
-  const list = await search(
+  const syllabusPages: { refer: ReferSyllabus, syllabusHTML: string }[] = []
+  for await (const refer of search(
     session,
     {
-      'nenji': '2年',
-      'jikanwariShozokuCode': '情報理工学域夜間主コース',
-      'gakkiKubunCode': '後学期',
+      'nenji': '指示なし',
+      // デフォルト値はアカウントの所属
+      'jikanwariShozokuCode': '指示なし',
+      'gakkiKubunCode': '指示なし',
     }
-  )
-  const syllabusPages = await Promise.all(list.map(s => fetchSyllabusHTMLByRefer(session, s)))
+  )) {
+    await new Promise(res => setTimeout(res, 500))
+    const syllabusHTML = await fetchSyllabusHTMLByRefer(session, refer)
+    syllabusPages.push({ refer, syllabusHTML })
+    writeFileSync('./syllabus_temp.json', JSON.stringify(syllabusPages, null, 2), { encoding: 'utf8' })
+  }
 
   ;(() => {
     /* export it */
-    const exp = list.map((refer, i) => {
-      const contentHTML = syllabusPages[i]
+    const exp = syllabusPages.map(({ refer, syllabusHTML }, i) => {
       return {
         ...refer.digest,
         contentTree: (() => {
           try {
-            console.log(`Parsing ${i+1} / ${list.length} …`)
-            return parseSyllabusPageHTML(contentHTML)
+            console.log(`Parsing ${i+1} / ${syllabusPages.length} …`)
+            return parseSyllabusPageHTML(syllabusHTML)
           } catch (e) {
             console.error(e)
             return null
           }
         })(),
-        contentHTML,
+        contentHTML: syllabusHTML,
       }
     })
     writeFileSync('./syllabus.json', JSON.stringify(exp, null, 2), {encoding: 'utf8'})

@@ -9,15 +9,15 @@ import type { Fetch } from '../utils/baked-fetch'
 // 空白は trim されます
 type Option = {
   // 開講所属: 空文字が「指示なし」
-  jikanwariShozokuCode?: string,
+  jikanwariShozokuCode?: '指示なし' | string,
   // 学期
-  gakkiKubunCode?: '前学期' | '後学期',
+  gakkiKubunCode?: '指示なし' | '前学期' | '後学期',
   // 年次
-  nenji: '1年' | '2年' | '3年' | '4年' | '5年' | '6年' | '7年',
+  nenji: '指示なし' | '1年' | '2年' | '3年' | '4年' | '5年' | '6年' | '7年',
 }
 
 // シラバスの個別ページにジャンプするためのデータ
-type ReferSyllabus = {
+export type ReferSyllabus = {
   initForm: () => Record<string, string>,
   digest: Record<string, string>,
   method: string,
@@ -30,19 +30,82 @@ type ReferSyllabus = {
   },
 }
 
-// 現時点でページングに非対応なので、検索条件は200件に収まる範囲にしてください
-// また、負荷低減手法を取り入れていないため問題があります
-export const search = async (session: Fetch, searchOption: Option) => {
-  const frame = await session('https://campusweb.office.uec.ac.jp/campusweb/ssologin.do', { credentials: 'includes' })
-  if (!((new URL(frame.url)).hostname === 'campusweb.office.uec.ac.jp')) throw new Error('ログインしてから呼び出してください')
+const parseSearchResultTable = (table: HTMLTableElement) => {
+  const headers = Array.from(table.tHead!.rows[0].cells)
+  return Array.from(table.tBodies[0].rows).reduce((acc, row) => {
+    const cells = Array.from(row.cells).map((c, i) => [headers[i], c])
+    const o = cells.reduce(
+      (acc, [header, cell]) => {
+        const headerText = header.textContent!.replace(/\s+/g, '')
+        if (headerText === '参照') {
+          return {
+            ...acc,
+            [headerText]: cell.firstElementChild as HTMLInputElement
+          }
+        }
+        return {
+          ...acc,
+          [headerText]: cell.textContent!.trim()
+        }
+      }, {} as any
+    )
+    return [...acc, o]
+  }, [] as (Record<string, string> & { '参照': HTMLInputElement })[])
+}
+const listReferSyllabusInSearchPage = async function* (session: Fetch, document: Document, url: string, bodyHTML: string = "") {
+  const searchResultTable = document.querySelector('table[class=normal]') as HTMLTableElement
+  if (!searchResultTable) {
+    console.error(bodyHTML)
+    const errors = document.getElementsByClassName('error')
+    if (errors.length) {
+      throw new Error(errors[0].textContent!.trim())
+    }
+    throw new Error('table みつからん!')
+  }
+  const tables = parseSearchResultTable(searchResultTable)
+  const jikanwariInputForm = document.getElementById('jikanwariInputForm')! as HTMLFormElement
+  const jikanwariInputInput = convertFormElementsToPlainKeyValueObject(jikanwariInputForm)
+  for (const { 参照, ...digest } of tables) {
+    const onclick = 参照.getAttribute('onclick')!
+    if (!onclick.startsWith('refer(')) throw new Error(`参照ボタンの onclick が期待と違います: ${onclick}`)
+    // eval で呼ばれるやつ
+    const refer = (nendo: string, jscd: string, jcd: string, locale: string): ReferSyllabus => {
+      const referSyllabus: ReferSyllabus = {
+        initForm: () => ({ ...jikanwariInputInput }),
+        digest,
+        options: {
+          nendo,
+          jikanwariShozokuCode: jscd,
+          jikanwaricd: jcd,
+          locale,
+        },
+        method: jikanwariInputForm.method,
+        url: resolve(url, jikanwariInputForm.action),
+      }
+      return referSyllabus
+    }
+    // FIXME: 本当は eval 使いたくない
+    yield eval(onclick) as ReferSyllabus
+    // 検索結果に戻す
+    const backButton = Array.from(document.getElementsByTagName('a')).filter(v => v.textContent?.trim() === "検索結果に戻る")
+    if (backButton.length) {
+      console.log(backButton.length)
+      await session(backButton[0].href, { credentials: 'includes' })
+    }
+  }
+}
 
-  const { window: { document } } = new JSDOM(await frame.text())
+const fetchMenuByFrameHTML = async (session: Fetch, baseURL: string, frameHTML: string) => {
+  // menu の URL を探す
+  const { window: { document } } = new JSDOM(frameHTML)
   const frameSrc = document.querySelector('frame[name=menu]')!.getAttribute('src')!
-  const menuURL = resolve(frame.url, frameSrc)
-
+  const menuURL = resolve(baseURL, frameSrc)
   // menu は utf-8
-  const menu = await session(menuURL, { credentials: 'includes' })
-  const { window: { document: menuDocument } } = new JSDOM(await menu.text())
+  return session(menuURL, { credentials: 'includes' })
+}
+const fetchFlowByMenuHTML = async (session: Fetch, baseURL: string, menuHTML: string, flowName: string) => {
+  // menu は utf-8
+  const { window: { document: menuDocument } } = new JSDOM(menuHTML)
 
   const extractFlowID = (name: string) => {
     const s = menuDocument.querySelector(`span[title="${name}"]`)
@@ -60,7 +123,7 @@ export const search = async (session: Fetch, searchOption: Option) => {
     if (!linkForm) throw new Error('linkForm が見付かりませんでした. 指定された flowID へ遷移できません')
     const input = convertFormElementsToPlainKeyValueObject(linkForm)
     input._flowId = flowID
-    const doURL = resolve(menuURL, linkForm.action)
+    const doURL = resolve(baseURL, linkForm.action)
     return session(doURL, {
       method: linkForm.method,
       body: new URLSearchParams(input).toString(),
@@ -70,26 +133,23 @@ export const search = async (session: Fetch, searchOption: Option) => {
       credentials: 'includes',
     })
   }
+  const flowID = extractFlowID(flowName)!
+  if (!flowID) throw new Error(`メニュー内に ${flowName} に紐付くパスが存在しない`)
+  return getByFlowID(flowID)
+}
 
-  // シラバス検索ページを開く
-  const syllabusID = extractFlowID('シラバス参照')!
-  const syllabusSearchPage = await getByFlowID(syllabusID)
-  const syllabusPageText = await syllabusSearchPage.text()
-  const { window: { document: syllabusSearchDocument } } = new JSDOM(syllabusPageText)
+const searchSyllabusSearchForm = async (session: Fetch, baseURL: string, menuHTML: string, options: Record<string, string>) => {
+  const syllabusSearchForm = await fetchFlowByMenuHTML(session, baseURL, menuHTML, 'シラバス参照')
+  const syllabusSearchFormHTML = await syllabusSearchForm.text()
+  const { window: { document: syllabusSearchFormDocument } } = new JSDOM(syllabusSearchFormHTML)
 
-  const jikanwariSearchForm = syllabusSearchDocument.getElementById('jikanwariSearchForm')! as HTMLFormElement
+  const jikanwariSearchForm = syllabusSearchFormDocument.getElementById('jikanwariSearchForm')! as HTMLFormElement
   // 検索条件を決定する
   // TODO: option の中身を用いてバリデーションする
   // TODO: フォームの name= が足りてるか確認したい
-  const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, {
-    selectByOptionInnerText: {
-      // FIXME: 型 :(
-      ...(searchOption as any),
-      '_displayCount': '200'
-    }
-  })
+  const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, { selectByOptionInnerText: options })
 
-  const searchResult = await session(resolve(syllabusSearchPage.url, jikanwariSearchForm.action), {
+  return session(resolve(syllabusSearchForm.url, jikanwariSearchForm.action), {
     method: jikanwariSearchForm.method,
     body: new URLSearchParams(jikanwariSearchFormInput).toString(),
     headers: {
@@ -97,64 +157,64 @@ export const search = async (session: Fetch, searchOption: Option) => {
     },
     credentials: 'includes',
   })
+}
+
+// ReferSyllabus を async yield*
+export const search = async function* (session: Fetch, searchOption: Option) {
+  const frame = await session('https://campusweb.office.uec.ac.jp/campusweb/ssologin.do', { credentials: 'includes' })
+  if (!((new URL(frame.url)).hostname === 'campusweb.office.uec.ac.jp')) throw new Error('ログインしてから呼び出してください')
+  const frameHTML = await frame.text()
+
+  // menu を探す
+  const menu = await fetchMenuByFrameHTML(session, frame.url, frameHTML)
+  const menuHTML = await menu.text()
+
+  /**
+   * シラバスを検索!!!!
+   */
+  // 「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページングを進めるたびに読み直す
+  const displayCount = '20'
+  const searchResult = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
+    // FIXME: 型 :(
+    ...(searchOption as any),
+    // memo: 「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページングを進めるたびに読み直す
+    '_displayCount': displayCount
+  })
   const searchResultText = await searchResult.text()
   const { window: { document: searchResultDocument } } = new JSDOM(searchResultText)
-  const searchResultTable = searchResultDocument.querySelector('table[class=normal]') as HTMLTableElement
-  if (!searchResultTable) {
-    const errors = searchResultDocument.getElementsByClassName('error')
-    if (errors.length) {
-      throw new Error(errors[0].textContent!.trim())
-    }
-    throw new Error('table みつからん')
+  for await (const refer of listReferSyllabusInSearchPage(session, searchResultDocument, searchResult.url, searchResultText)) {
+    yield refer
   }
 
-  const parseSearchResultTable = (table: HTMLTableElement) => {
-    const headers = Array.from(table.tHead!.rows[0].cells)
-    return Array.from(table.tBodies[0].rows).reduce((acc, row) => {
-      const cells = Array.from(row.cells).map((c, i) => [headers[i], c])
-      const o = cells.reduce(
-        (acc, [header, cell]) => {
-          const headerText = header.textContent!.replace(/\s+/g, '')
-          if (headerText === '参照') {
-            return {
-              ...acc,
-              [headerText]: cell.firstElementChild as HTMLInputElement
-            }
-          }
-          return {
-            ...acc,
-            [headerText]: cell.textContent!.trim()
-          }
-        }, {} as any
-      )
-      return [...acc, o]
-    }, [] as (Record<string, string> & { '参照': HTMLInputElement })[])
-  }
-  const tables = parseSearchResultTable(searchResultTable)
-  return tables.map(({ 参照, ...digest }) => {
-    const onclick = 参照.getAttribute('onclick')!
-    if (!onclick.startsWith('refer(')) throw new Error(`参照ボタンの onclick が期待と違います: ${onclick}`)
-    // eval で呼ばれるやつ
-    const refer = (nendo: string, jscd: string, jcd: string, locale: string): ReferSyllabus => {
-      const jikanwariInputForm = searchResultDocument.getElementById('jikanwariInputForm')! as HTMLFormElement
-      const jikanwariInputInput = convertFormElementsToPlainKeyValueObject(jikanwariInputForm)
-      const referSyllabus: ReferSyllabus = {
-        initForm: () => ({ ...jikanwariInputInput }),
-        digest,
-        options: {
-          nendo,
-          jikanwariShozokuCode: jscd,
-          jikanwaricd: jcd,
-          locale,
-        },
-        method: jikanwariInputForm.method,
-        url: resolve(searchResult.url, jikanwariInputForm.action),
-      }
-      return referSyllabus
+  const parseNextPageUrls = (document: Document) => Array.from(
+    Array.from(
+      document.body.getElementsByTagName('a')).map(a => a.href).reduce((s, i) => { s.add(i); return s },
+      new Set<string>()
+    ).keys()
+  )
+
+  // ページングを全部取得する
+  // 問題として、ページングを取得するためには再度取得しなければならない
+  const nextPageCount = parseNextPageUrls(searchResultDocument).length
+  for (let i = 0; i < nextPageCount; i++) {
+    // 再度検索!!!!!
+    // 「ページの有効期限が過ぎています。」などと言われてしまうのでページングを進めるたびに読み直す
+    const searchResultAgain = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
+      // FIXME: 型
+      ...(searchOption as any),
+      '_displayCount': displayCount
+    })
+    const searchResultAgainText = await searchResultAgain.text()
+    const { window: { document: searchResultAgainDocument } } = new JSDOM(searchResultAgainText)
+    const nextUrls = parseNextPageUrls(searchResultAgainDocument)
+
+    const nextPage = await session(resolve(searchResultAgain.url, nextUrls[i]), { credentials: 'includes' })
+    const nextPageHTML = await nextPage.text()
+    const { window: { document: nextPageDocument } } = new JSDOM(nextPageHTML)
+    for await (const refer of listReferSyllabusInSearchPage(session, nextPageDocument, nextPage.url, nextPageHTML)) {
+      yield refer
     }
-    // FIXME: 本当は eval 使いたくない
-    return eval(onclick) as ReferSyllabus
-  })
+  }
 }
 
 export const fetchSyllabusHTMLByRefer = async (session: Fetch, refer: ReferSyllabus) => {
