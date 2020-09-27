@@ -8,13 +8,12 @@ import type { Fetch } from '../utils/baked-fetch'
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
 type Option = {
-  // 開講所属
-  'jikanwariShozokuCode': string,
+  // 開講所属: 空文字が「指示なし」
+  jikanwariShozokuCode?: string,
   // 学期
-  'gakkiKubunCode': '前学期' | '後学期',
+  gakkiKubunCode?: '前学期' | '後学期',
   // 年次
-  'nenji': '1年' | '2年' | '3年' | '4年' | '5年' | '6年' | '7年',
-  [K: string]: string
+  nenji: '1年' | '2年' | '3年' | '4年' | '5年' | '6年' | '7年',
 }
 
 // シラバスの個別ページにジャンプするためのデータ
@@ -84,12 +83,12 @@ export const search = async (session: Fetch, searchOption: Option) => {
   // TODO: フォームの name= が足りてるか確認したい
   const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, {
     selectByOptionInnerText: {
-      ...searchOption,
+      // FIXME: 型 :(
+      ...(searchOption as any),
       '_displayCount': '200'
     }
   })
 
-  // FIXME: ページングに対応していない
   const searchResult = await session(resolve(syllabusSearchPage.url, jikanwariSearchForm.action), {
     method: jikanwariSearchForm.method,
     body: new URLSearchParams(jikanwariSearchFormInput).toString(),
@@ -101,7 +100,13 @@ export const search = async (session: Fetch, searchOption: Option) => {
   const searchResultText = await searchResult.text()
   const { window: { document: searchResultDocument } } = new JSDOM(searchResultText)
   const searchResultTable = searchResultDocument.querySelector('table[class=normal]') as HTMLTableElement
-  if (!searchResultTable) throw new Error('table みつからん')
+  if (!searchResultTable) {
+    const errors = searchResultDocument.getElementsByClassName('error')
+    if (errors.length) {
+      throw new Error(errors[0].textContent!.trim())
+    }
+    throw new Error('table みつからん')
+  }
 
   const parseSearchResultTable = (table: HTMLTableElement) => {
     const headers = Array.from(table.tHead!.rows[0].cells)
