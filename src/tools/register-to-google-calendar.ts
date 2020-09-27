@@ -1,5 +1,5 @@
 import $, { Transformer } from 'transform-ts'
-import { convertContentTreeToMarkdown } from '../campussquare/content-parser'
+import { convertSyllabusTreeToMarkdown } from '../campussquare-syllabus/parse'
 import * as googleapis from 'googleapis'
 
 // env
@@ -212,7 +212,7 @@ const main = async () => {
       "曜日・時限": jigen,
       科目番号,
       calendar: calculateCalendarFromJigen(jigen),
-      description: convertContentTreeToMarkdown(s.contentTree as any),
+      description: convertSyllabusTreeToMarkdown(s.contentTree as any),
     }
   }).filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
 

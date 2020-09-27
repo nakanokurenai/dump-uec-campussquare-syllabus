@@ -1,8 +1,3 @@
-/**
- * parser.ts
- * シラバスページのパース
- */
-
 import { JSDOM } from 'jsdom'
 import sanitize from 'sanitize-html'
 
@@ -12,11 +7,11 @@ type SyllabusTableTree = {
   content?: HTMLTableElement
 }
 
-export type ContentTree = {
+export type SyllabusTree = {
   title: string,
   content: { [key: string]: string } | null,
   // JSON からパースするときにこれがない扱いにしたほうが楽なことがあり optional にしたほうがいいかも…
-  children: ContentTree[]
+  children: SyllabusTree[]
 }
 
 export const parseSyllabusPageHTML = (html: string) => {
@@ -55,7 +50,7 @@ export const parseSyllabusPageHTML = (html: string) => {
       .map(n => ({ key: n.previousElementSibling!.textContent!.trim(), value: convertElementToInnerTextLike(n).trim() }))
       .reduce((acc, kv) => ({ ...acc, [kv.key]: kv.value }), {} as { [K: string]: string })
   }
-  const convertSyllabusTableTree = (tree: SyllabusTableTree): ContentTree => ({
+  const convertSyllabusTableTree = (tree: SyllabusTableTree): SyllabusTree => ({
     title: tree.frame.textContent!.trim(),
     children: tree.children.map(t => convertSyllabusTableTree(t)),
     content: tree.content ? convertContent(tree.content) : null
@@ -66,7 +61,7 @@ export const parseSyllabusPageHTML = (html: string) => {
   return r
 }
 
-export const convertContentTreeToMarkdown = ({ content, title, children }: ContentTree, depth = 1): string => {
+export const convertSyllabusTreeToMarkdown = ({ content, title, children }: SyllabusTree, depth = 1): string => {
   return `\
 ${'#'.repeat(depth)} ${title}
 ${content ? '\n' + Object.entries(content).filter(([,value]) => value.trim()).map(
@@ -78,6 +73,6 @@ ${content ? '\n' + Object.entries(content).filter(([,value]) => value.trim()).ma
     )
   }
 ).join('\n') : ''}\
-${children && children.length ? '\n' + children.map(c => convertContentTreeToMarkdown(c, depth+1)).join('\n') : ''}
+${children && children.length ? '\n' + children.map(c => convertSyllabusTreeToMarkdown(c, depth+1)).join('\n') : ''}
 `
 }
