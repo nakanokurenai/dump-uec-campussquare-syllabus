@@ -60,9 +60,10 @@ async function main() {
       'gakkiKubunCode': '指示なし',
     }
   )) {
-    await new Promise(res => setTimeout(res, 500))
+    await new Promise(res => setTimeout(res, 300))
     const syllabusHTML = await fetchSyllabusHTMLByRefer(session, refer)
     syllabusPages.push({ refer, syllabusHTML })
+    // 途中で失敗したときの経過を保存しておきたい
     writeFileSync('./syllabus_temp.json', JSON.stringify(syllabusPages, null, 2), { encoding: 'utf8' })
   }
 
