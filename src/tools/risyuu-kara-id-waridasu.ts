@@ -49,9 +49,6 @@ const loadEnv = () => {
 const fetchAllDigest = async function* (session: Fetch) {
   // 今年度の全てのシラバス要約を取得
   for await (const digest of search(session, { 'nenji': '指示なし', 'jikanwariShozokuCode': '指示なし', 'gakkiKubunCode': '指示なし', })) {
-    // ページ捲りが速すぎると怒られそうなので、1秒1ページに絞る
-    // FIXME: /20 は内部に依存してるので本当はやめたい
-    // await new Promise(res => setTimeout(res, 1000/20))
     yield digest
   }
 }
