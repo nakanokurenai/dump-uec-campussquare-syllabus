@@ -96,13 +96,13 @@ const listReferSyllabusInSearchPage = async function* (session: Fetch, document:
 }
 
 const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => {
-  const syllabusSearchForm = await fetchFlowByMenu(session, menu, 'シラバス参照')
-  const syllabusSearchFormHTML = await syllabusSearchForm.text()
-  const { window: { document: syllabusSearchFormDocument } } = new JSDOM(syllabusSearchFormHTML)
+  const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
+  const syllabusSearchPageHTML = await syllabusSearchPage.text()
+  const { window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
 
-  const jikanwariSearchForm = syllabusSearchFormDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
+  const jikanwariSearchForm = syllabusSearchPageDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
   if (!jikanwariSearchForm) {
-    console.error(syllabusSearchFormHTML)
+    console.error(syllabusSearchPageHTML)
     throw new Error('時間割検索フォームがみあたりません')
   }
   // 検索条件を決定する
@@ -110,7 +110,7 @@ const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Rec
   // TODO: フォームの name= が足りてるか確認したい
   const jikanwariSearchFormInput = convertFormElementsToPlainKeyValueObject(jikanwariSearchForm, { selectByOptionInnerText: options })
 
-  return session(resolve(syllabusSearchForm.url, jikanwariSearchForm.action), {
+  return session(resolve(syllabusSearchPage.url, jikanwariSearchForm.action), {
     method: jikanwariSearchForm.method,
     body: new URLSearchParams(jikanwariSearchFormInput).toString(),
     headers: {
