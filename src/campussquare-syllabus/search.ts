@@ -178,14 +178,15 @@ export const search = async function* (session: Fetch, searchOption: Option) {
    */
   // memo: 一気に取ってこようとしても「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページを進めるたびに読み直す
   const displayCount = 20
-  const searchResult = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
+  const search = () => searchSyllabusSearchForm(session, menu.url, menuHTML, {
     // FIXME: 型 :(
     ...(searchOption as any),
     '_displayCount': displayCount.toString(10)
   })
+  const searchResult = await search()
   const searchResultText = await searchResult.text()
   const { window: { document: searchResultDocument } } = new JSDOM(searchResultText)
-  // ページングする前に返却
+  // memo: 1ページ目はページング不要なのでさきに返却する
   for await (const refer of listReferSyllabusInSearchPage(session, searchResultDocument, searchResult.url, searchResultText)) {
     yield refer
   }
@@ -210,7 +211,6 @@ export const search = async function* (session: Fetch, searchOption: Option) {
   }
 
   // ページングを全部取得する
-  // 問題として、ページングを取得するためには再度取得しなければならないので、件数を持っておく
   const syllabusCount = parseResultCount(searchResultDocument)
   const pageCount = Math.ceil(syllabusCount / displayCount)
   console.log(`fetching ${syllabusCount} syllabuses (from ${pageCount} pages)`)
@@ -219,11 +219,7 @@ export const search = async function* (session: Fetch, searchOption: Option) {
     console.log(`Move to page ${cp} / ${pageCount}`)
     // 「ページの有効期限が過ぎています。」などと言われてしまうのでページングを進めるたびに読み直し、該当ページのリンクを取得するまでページを動かす
     const nextPageUrl = await (async (targetPage: number) => {
-      const searchResultAgain = await searchSyllabusSearchForm(session, menu.url, menuHTML, {
-        // FIXME: 型
-        ...(searchOption as any),
-        '_displayCount': displayCount.toString(10)
-      })
+      const searchResultAgain = await search()
       let currentPage = await searchResultAgain.text()
       let i = 0
       while (true) {
