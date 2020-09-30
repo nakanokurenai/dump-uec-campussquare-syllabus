@@ -1,9 +1,7 @@
 import { Fetch } from "../utils/baked-fetch"
 import { resolve } from 'url'
 import { JSDOM } from 'jsdom'
-import type * as jsdom from 'jsdom'
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
-import { drun } from "../utils/defer"
 
 const fetchFrame = async (session: Fetch) => {
   const frame = await session('https://campusweb.office.uec.ac.jp/campusweb/ssologin.do', { credentials: 'includes' })
@@ -13,30 +11,28 @@ const fetchFrame = async (session: Fetch) => {
 
 export type Menu = {
   url: string,
-  window: jsdom.DOMWindow,
+  fragment: DocumentFragment,
 }
 
 // menu は一回しか呼ばないものなので frame の取得をしてしまう
-export const fetchMenu = (session: Fetch): Promise<Menu> => drun(async defer => {
+export const fetchMenu = async (session: Fetch): Promise<Menu> => {
   const frame = await fetchFrame(session)
   const frameHTML = await frame.text()
   // menu の URL を探す
-  const { window: frameWindow, window: { document: frameDocument } } = new JSDOM(frameHTML)
-  defer(() => frameWindow.close())
-  const frameSrc = frameDocument.querySelector('frame[name=menu]')!.getAttribute('src')!
+  const frameFragment = JSDOM.fragment(frameHTML)
+  const frameSrc = frameFragment.querySelector('frame[name=menu]')!.getAttribute('src')!
   const menuURL = resolve(frame.url, frameSrc)
   const resp = await session(menuURL, { credentials: 'includes' })
-  // utf-8
-  const { window } = new JSDOM(await resp.text())
   return {
-    window,
+    // menu だけ utf-8、JSDOM が優秀なのでなにも考えなくても動くが Shift-JIS だったりするので気をつける必要がある
+    fragment: JSDOM.fragment(await resp.text()),
     url: resp.url,
   }
-})
+}
 
 export const fetchFlowByMenu = async (session: Fetch, menu: Menu, flowName: string) => {
   const extractFlowID = (name: string) => {
-    const s = menu.window.document.querySelector(`span[title="${name}"]`)
+    const s = menu.fragment.querySelector(`span[title="${name}"]`)
     if (!s) return
     const a = s.parentElement!
     var onclick = a.getAttribute('onclick')
@@ -47,7 +43,7 @@ export const fetchFlowByMenu = async (session: Fetch, menu: Menu, flowName: stri
     return flowId
   }
   const getByFlowID = (flowID: string) => {
-    const linkForm = Array.from(menu.window.document.forms).find(f => f.name === 'linkForm')
+    const linkForm = Array.from(menu.fragment.querySelectorAll('form')).find(f => f.name === 'linkForm')
     if (!linkForm) throw new Error('linkForm が見付かりませんでした. 指定された flowID へ遷移できません')
     const input = convertFormElementsToPlainKeyValueObject(linkForm)
     input._flowId = flowID

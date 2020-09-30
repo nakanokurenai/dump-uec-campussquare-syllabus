@@ -1,4 +1,4 @@
-import { ReferSyllabus, search } from "../campussquare-syllabus/search"
+import { search } from "../campussquare-syllabus/search"
 import { fetchFlowByMenu, fetchMenu, Menu } from "../campussquare/menu"
 import * as signin from '../campussquare/signin'
 import { Fetch } from "../utils/baked-fetch"
@@ -7,9 +7,7 @@ import { JSDOM } from 'jsdom'
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
 import { resolve } from 'url'
 import { drun } from "../utils/defer"
-
-type ReturnOf<T> =  T extends (...rest: any[]) => infer R ? R : unknown
-type PromiseOf<P extends Promise<any>> = P extends Promise<infer T> ? T : unknown
+import { PromiseType } from "../utils/types"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES = '履修登録・登録状況照会'
 
@@ -77,14 +75,13 @@ const useCache = async <T>(name: string, f: () => T): Promise<T> => {
   return res
 }
 
-const fetchRegisteredCources = (session: Fetch, menu: Menu) => drun(async defer => {
+const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
   const digests = await useCache("all-digests", () => arrayFromAsyncIterator(fetchAllDigest(session)))
 
   const regPage = await fetchFlowByMenu(session, menu, COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES)
-  const { window: { document: regPageDocument }, window: regPageWindow } = new JSDOM(await regPage.text())
-  defer(() => regPageWindow.close())
+  const regPageFragment = JSDOM.fragment(await regPage.text())
 
-  const registered = Array.from(regPageDocument.getElementsByClassName('rishu-koma-inner'))
+  const registered = Array.from(regPageFragment.querySelectorAll('.rishu-koma-inner'))
     .filter(n => !n.textContent?.includes("未登録"))
     .map(n => n.textContent?.trim() || "")
     .map(t => t.split("\n").map(l => l.trim()))
@@ -110,9 +107,9 @@ const fetchRegisteredCources = (session: Fetch, menu: Menu) => drun(async defer 
       lecturersEquality: digest.digest["担当"] === rest.lecturers,
     }
   })
-})
+}
 
-const main = () => drun(async defer => {
+const main = async () => {
   const env = loadEnv()
   const session = signin.createSession()
 
@@ -129,13 +126,12 @@ const main = () => drun(async defer => {
 
   const registeredCources = await fetchRegisteredCources(session, menu)
 
-  const syllabusPages: { cource: PromiseOf<ReturnOf<typeof fetchRegisteredCources>>[number], syllabusHTML: string }[] = []
+  const syllabusPages: { cource: PromiseType<ReturnType<typeof fetchRegisteredCources>>[number], syllabusHTML: string }[] = []
   for (const cource of registeredCources) {
     const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
     const syllabusSearchPageHTML = await syllabusSearchPage.text()
-    const { window: { document: syllabusSearchPageDocument }, window: syllabusSearchPageWindow } = new JSDOM(syllabusSearchPageHTML)
-    defer(() => syllabusSearchPageWindow.close())
-    const jikanwariInputForm = syllabusSearchPageDocument.getElementById('jikanwariInputForm') as HTMLFormElement | null
+    const syllabusSearchPageFragment = JSDOM.fragment(syllabusSearchPageHTML)
+    const jikanwariInputForm = syllabusSearchPageFragment.getElementById('jikanwariInputForm') as HTMLFormElement | null
   
     if (!jikanwariInputForm) throw new Error('時間割コードでシラバスを参照することができません')
   
@@ -157,7 +153,7 @@ const main = () => drun(async defer => {
     await fs.promises.writeFile("./risyuu-syllabuses.json", JSON.stringify(syllabusPages, null, 2), { encoding: 'utf-8' })
   }
   await fs.promises.writeFile("./risyuu-syllabuses.json", JSON.stringify(syllabusPages, null, 2), { encoding: 'utf-8' })
-})
+}
 
 main().catch(e => {
   console.error(e)

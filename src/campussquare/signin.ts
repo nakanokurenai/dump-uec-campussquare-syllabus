@@ -5,7 +5,6 @@ import { readFileSync, writeFileSync } from 'fs'
 
 import { bakedFetch, Fetch } from '../utils/baked-fetch'
 import toughCookie from "tough-cookie";
-import { drun } from '../utils/defer'
 
 const jarSym = Symbol()
 
@@ -44,7 +43,7 @@ export const isLoggedIn = async (fetch: Fetch) => {
   return (new URL(sso.url)).hostname === 'campusweb.office.uec.ac.jp'
 }
 
-export const login = (fetch: Fetch, username: string, password: string, mfaCodePrompt?: () => Promise<number>) => drun(async defer => {
+export const login = async (fetch: Fetch, username: string, password: string, mfaCodePrompt?: () => Promise<number>) => {
   const url = new URL(CAMPUS_SQUARE_SSO_ROOT)
 
   const sso = await fetch(url, {
@@ -55,9 +54,9 @@ export const login = (fetch: Fetch, username: string, password: string, mfaCodeP
     throw new Error('shibboleth にリダイレクトされませんでした。もうログイン済みかもしれません')
   }
 
-  const { window: { document }, window } = new JSDOM(await sso.text())
-  defer(() => window.close())
-  const form = document.forms[0]
+  const fragment = JSDOM.fragment(await sso.text())
+  // FIXME: form が存在するかちゃんとチェックする (型が嘘をついている)
+  const form = fragment.querySelectorAll('form')[0]
 
   const input = convertFormElementsToPlainKeyValueObject(form)
   input['j_username'] = username
@@ -77,9 +76,8 @@ export const login = (fetch: Fetch, username: string, password: string, mfaCodeP
       throw new Error('二段階認証が必要です。引数が足りていません')
     }
     const mfaCode = await mfaCodePrompt()
-    const { window: { document }, window } = new JSDOM(await resp.text())
-    defer(() => window.close())
-    const mfaForm = document.forms[0]
+    const fragment = JSDOM.fragment(await resp.text())
+    const mfaForm = fragment.querySelectorAll('form')[0]
     const mfaInput = convertFormElementsToPlainKeyValueObject(mfaForm, { submitName: 'login' })
     mfaInput['authcode'] = mfaCode.toString(10)
     resp = await fetch(resolve(resp.url, mfaForm.action), {
@@ -98,9 +96,8 @@ export const login = (fetch: Fetch, username: string, password: string, mfaCodeP
     throw new Error('失敗してそう')
   }
 
-  const { window: { document: redirectDocument }, window: redirectWindow } = new JSDOM(redirectText)
-  defer(() => redirectWindow.close())
-  const redirectForm = redirectDocument.forms[0]
+  const redirectFragment = JSDOM.fragment(await resp.text())
+  const redirectForm = redirectFragment.querySelectorAll('form')[0]
   const redirectResp = await fetch(resolve(resp.url, redirectForm.action), {
     method: 'post',
     body: new URLSearchParams(convertFormElementsToPlainKeyValueObject(redirectForm)).toString(),
@@ -116,4 +113,4 @@ export const login = (fetch: Fetch, username: string, password: string, mfaCodeP
   }
 
   return
-})
+}
