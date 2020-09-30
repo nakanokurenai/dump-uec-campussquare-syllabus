@@ -21,11 +21,13 @@
     "@types/node-fetch": "^2.5.7",
     "@types/sanitize-html": "^1.23.0",
     "jest": "^26.4.2",
+    "prettier": "^2.1.2",
     "ts-jest": "^26.4.1",
     "ts-node": "^8.10.1",
     "typescript": "^3.8.3"
   },
   "scripts": {
-    "start": "ts-node ."
+    "start": "ts-node .",
+    "fmt": "prettier --write --no-semi ./src/**/*.ts ./src/*.ts"
   }
 }
