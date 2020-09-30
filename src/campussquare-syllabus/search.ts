@@ -4,6 +4,7 @@ import { convertFormElementsToPlainKeyValueObject } from '../utils/dom'
 import type { Fetch } from '../utils/baked-fetch'
 
 import { fetchFlowByMenu, fetchMenu, Menu } from '../campussquare/menu'
+import { drai, drun } from '../utils/defer'
 
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
@@ -95,10 +96,11 @@ const listReferSyllabusInSearchPage = async function* (session: Fetch, document:
   }
 }
 
-const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => {
+const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => drun(async defer => {
   const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
   const syllabusSearchPageHTML = await syllabusSearchPage.text()
-  const { window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
+  const { window: syllabusSearchPageWindow, window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
+  defer(() => syllabusSearchPageWindow.close())
 
   const jikanwariSearchForm = syllabusSearchPageDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
   if (!jikanwariSearchForm) {
@@ -118,10 +120,11 @@ const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Rec
     },
     credentials: 'includes',
   })
-}
+})
 
-export const search = async function* (session: Fetch, searchOption: Option) {
+export const search = (session: Fetch, searchOption: Option) => drai(async function* (defer) {
   const menu = await fetchMenu(session)
+  defer(() => menu.window.close())
 
   // memo: 一気に取ってこようとしても「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページを進めるたびに読み直す
   const displayCount = 20
@@ -132,7 +135,8 @@ export const search = async function* (session: Fetch, searchOption: Option) {
   })
   const searchResult = await search()
   const searchResultText = await searchResult.text()
-  const { window: { document: searchResultDocument } } = new JSDOM(searchResultText)
+  const { window: searchResultWindow, window: { document: searchResultDocument } } = new JSDOM(searchResultText)
+  defer(() => searchResultWindow.close())
   // memo: 1ページ目はページング不要なのでさきに返却する
   for await (const refer of listReferSyllabusInSearchPage(session, searchResultDocument, searchResult.url, searchResultText)) {
     yield refer
@@ -174,7 +178,8 @@ export const search = async function* (session: Fetch, searchOption: Option) {
         i++
         if (i > targetPage) throw new Error("unreachable code")
 
-        let { window: { document } } = new JSDOM(currentPage)
+        const { window, window: { document } } = new JSDOM(currentPage)
+        defer(() => window.close())
         // FIXME: searchResultAgain.url ではなく現在参照しているページの URL を見るようにしたい
         const nextPageUrlMap = parseNextPageUrls(document, searchResultAgain.url)
         const maxNearlyPage = Array.from(nextPageUrlMap.keys()).filter(key => key <= targetPage).reduce(function max(max, mayMax) { return max < mayMax ? mayMax : max })
@@ -186,12 +191,13 @@ export const search = async function* (session: Fetch, searchOption: Option) {
     })(cp)
     const currentSearchResult = await session(nextPageUrl, { credentials: 'includes' })
     const currentSearchResultHTML = await currentSearchResult.text()
-    const { window: { document: currentSearchResultDocument } } = new JSDOM(currentSearchResultHTML)
+    const { window: currentSearchWindow, window: { document: currentSearchResultDocument } } = new JSDOM(currentSearchResultHTML)
+    defer(() => currentSearchWindow.close())
     for await (const refer of listReferSyllabusInSearchPage(session, currentSearchResultDocument, currentSearchResult.url, currentSearchResultHTML)) {
       yield refer
     }
   }
-}
+})
 
 export const fetchSyllabusHTMLByRefer = async (session: Fetch, refer: ReferSyllabus) => {
   const form = { ...refer.initForm(), ...refer.options }

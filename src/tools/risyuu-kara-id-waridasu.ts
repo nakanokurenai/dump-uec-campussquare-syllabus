@@ -6,6 +6,7 @@ import * as fs from 'fs'
 import { JSDOM } from 'jsdom'
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
 import { resolve } from 'url'
+import { drun } from "../utils/defer"
 
 type ReturnOf<T> =  T extends (...rest: any[]) => infer R ? R : unknown
 type PromiseOf<P extends Promise<any>> = P extends Promise<infer T> ? T : unknown
@@ -76,11 +77,12 @@ const useCache = async <T>(name: string, f: () => T): Promise<T> => {
   return res
 }
 
-const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
+const fetchRegisteredCources = (session: Fetch, menu: Menu) => drun(async defer => {
   const digests = await useCache("all-digests", () => arrayFromAsyncIterator(fetchAllDigest(session)))
 
   const regPage = await fetchFlowByMenu(session, menu, COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES)
-  const { window: { document: regPageDocument } } = new JSDOM(await regPage.text())
+  const { window: { document: regPageDocument }, window: regPageWindow } = new JSDOM(await regPage.text())
+  defer(() => regPageWindow.close())
 
   const registered = Array.from(regPageDocument.getElementsByClassName('rishu-koma-inner'))
     .filter(n => !n.textContent?.includes("未登録"))
@@ -108,9 +110,9 @@ const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
       lecturersEquality: digest.digest["担当"] === rest.lecturers,
     }
   })
-}
+})
 
-async function main() {
+const main = () => drun(async defer => {
   const env = loadEnv()
   const session = signin.createSession()
 
@@ -131,7 +133,8 @@ async function main() {
   for (const cource of registeredCources) {
     const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
     const syllabusSearchPageHTML = await syllabusSearchPage.text()
-    const { window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
+    const { window: { document: syllabusSearchPageDocument }, window: syllabusSearchPageWindow } = new JSDOM(syllabusSearchPageHTML)
+    defer(() => syllabusSearchPageWindow.close())
     const jikanwariInputForm = syllabusSearchPageDocument.getElementById('jikanwariInputForm') as HTMLFormElement | null
   
     if (!jikanwariInputForm) throw new Error('時間割コードでシラバスを参照することができません')
@@ -154,7 +157,7 @@ async function main() {
     await fs.promises.writeFile("./risyuu-syllabuses.json", JSON.stringify(syllabusPages, null, 2), { encoding: 'utf-8' })
   }
   await fs.promises.writeFile("./risyuu-syllabuses.json", JSON.stringify(syllabusPages, null, 2), { encoding: 'utf-8' })
-}
+})
 
 main().catch(e => {
   console.error(e)

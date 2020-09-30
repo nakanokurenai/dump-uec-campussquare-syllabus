@@ -1,7 +1,9 @@
 import { Fetch } from "../utils/baked-fetch"
 import { resolve } from 'url'
 import { JSDOM } from 'jsdom'
+import type * as jsdom from 'jsdom'
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
+import { drun } from "../utils/defer"
 
 const fetchFrame = async (session: Fetch) => {
   const frame = await session('https://campusweb.office.uec.ac.jp/campusweb/ssologin.do', { credentials: 'includes' })
@@ -11,29 +13,30 @@ const fetchFrame = async (session: Fetch) => {
 
 export type Menu = {
   url: string,
-  document: Document,
+  window: jsdom.DOMWindow,
 }
 
 // menu は一回しか呼ばないものなので frame の取得をしてしまう
-export const fetchMenu = async (session: Fetch): Promise<Menu> => {
+export const fetchMenu = (session: Fetch): Promise<Menu> => drun(async defer => {
   const frame = await fetchFrame(session)
   const frameHTML = await frame.text()
   // menu の URL を探す
-  const { window: { document } } = new JSDOM(frameHTML)
-  const frameSrc = document.querySelector('frame[name=menu]')!.getAttribute('src')!
+  const { window: frameWindow, window: { document: frameDocument } } = new JSDOM(frameHTML)
+  defer(() => frameWindow.close())
+  const frameSrc = frameDocument.querySelector('frame[name=menu]')!.getAttribute('src')!
   const menuURL = resolve(frame.url, frameSrc)
   const resp = await session(menuURL, { credentials: 'includes' })
   // utf-8
-  const { window: { document: menuDocument } } = new JSDOM(await resp.text())
+  const { window } = new JSDOM(await resp.text())
   return {
-    document: menuDocument,
+    window,
     url: resp.url,
   }
-}
+})
 
 export const fetchFlowByMenu = async (session: Fetch, menu: Menu, flowName: string) => {
   const extractFlowID = (name: string) => {
-    const s = menu.document.querySelector(`span[title="${name}"]`)
+    const s = menu.window.document.querySelector(`span[title="${name}"]`)
     if (!s) return
     const a = s.parentElement!
     var onclick = a.getAttribute('onclick')
@@ -44,7 +47,7 @@ export const fetchFlowByMenu = async (session: Fetch, menu: Menu, flowName: stri
     return flowId
   }
   const getByFlowID = (flowID: string) => {
-    const linkForm = Array.from(menu.document.forms).find(f => f.name === 'linkForm')
+    const linkForm = Array.from(menu.window.document.forms).find(f => f.name === 'linkForm')
     if (!linkForm) throw new Error('linkForm が見付かりませんでした. 指定された flowID へ遷移できません')
     const input = convertFormElementsToPlainKeyValueObject(linkForm)
     input._flowId = flowID

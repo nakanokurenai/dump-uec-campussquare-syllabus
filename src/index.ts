@@ -66,25 +66,23 @@ async function main() {
     writeFileSync('./syllabus_temp.json', JSON.stringify(syllabusPages, null, 2), { encoding: 'utf8' })
   }
 
-  ;(() => {
-    /* export it */
-    const exp = syllabusPages.map(({ refer, syllabusHTML }, i) => {
-      return {
-        ...refer.digest,
-        contentTree: (() => {
-          try {
-            console.log(`Parsing ${i+1} / ${syllabusPages.length} …`)
-            return parseSyllabusPageHTML(syllabusHTML)
-          } catch (e) {
-            console.error(e)
-            return null
-          }
-        })(),
-        contentHTML: syllabusHTML,
-      }
-    })
-    writeFileSync('./syllabus.json', JSON.stringify(exp, null, 2), {encoding: 'utf8'})
-  })()
+  /* export it */
+  const exp = await Promise.all(syllabusPages.map(async ({ refer, syllabusHTML }, i) => {
+    return {
+      ...refer.digest,
+      contentTree: await (() => {
+        try {
+          console.log(`Parsing ${i+1} / ${syllabusPages.length} …`)
+          return parseSyllabusPageHTML(syllabusHTML)
+        } catch (e) {
+          console.error(e)
+          return null
+        }
+      })(),
+      contentHTML: syllabusHTML,
+    }
+  }))
+  writeFileSync('./syllabus.json', JSON.stringify(exp, null, 2), {encoding: 'utf8'})
 }
 
 main().then(() => {

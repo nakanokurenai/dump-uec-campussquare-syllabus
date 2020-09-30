@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from 'fs'
 
 import { bakedFetch, Fetch } from '../utils/baked-fetch'
 import toughCookie from "tough-cookie";
+import { drun } from '../utils/defer'
 
 const jarSym = Symbol()
 
@@ -43,7 +44,7 @@ export const isLoggedIn = async (fetch: Fetch) => {
   return (new URL(sso.url)).hostname === 'campusweb.office.uec.ac.jp'
 }
 
-export const login = async (fetch: Fetch, username: string, password: string, mfaCodePrompt?: () => Promise<number>) => {
+export const login = (fetch: Fetch, username: string, password: string, mfaCodePrompt?: () => Promise<number>) => drun(async defer => {
   const url = new URL(CAMPUS_SQUARE_SSO_ROOT)
 
   const sso = await fetch(url, {
@@ -54,7 +55,8 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     throw new Error('shibboleth にリダイレクトされませんでした。もうログイン済みかもしれません')
   }
 
-  const { window: { document } } = new JSDOM(await sso.text())
+  const { window: { document }, window } = new JSDOM(await sso.text())
+  defer(() => window.close())
   const form = document.forms[0]
 
   const input = convertFormElementsToPlainKeyValueObject(form)
@@ -75,7 +77,8 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
       throw new Error('二段階認証が必要です。引数が足りていません')
     }
     const mfaCode = await mfaCodePrompt()
-    const { window: { document } } = new JSDOM(await resp.text())
+    const { window: { document }, window } = new JSDOM(await resp.text())
+    defer(() => window.close())
     const mfaForm = document.forms[0]
     const mfaInput = convertFormElementsToPlainKeyValueObject(mfaForm, { submitName: 'login' })
     mfaInput['authcode'] = mfaCode.toString(10)
@@ -95,7 +98,8 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     throw new Error('失敗してそう')
   }
 
-  const { window: { document: redirectDocument } } = new JSDOM(redirectText)
+  const { window: { document: redirectDocument }, window: redirectWindow } = new JSDOM(redirectText)
+  defer(() => redirectWindow.close())
   const redirectForm = redirectDocument.forms[0]
   const redirectResp = await fetch(resolve(resp.url, redirectForm.action), {
     method: 'post',
@@ -112,4 +116,4 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
   }
 
   return
-}
+})
