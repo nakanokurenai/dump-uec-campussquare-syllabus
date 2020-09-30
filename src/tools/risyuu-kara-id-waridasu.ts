@@ -6,7 +6,6 @@ import * as fs from 'fs'
 import { JSDOM } from 'jsdom'
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
 import { resolve } from 'url'
-import { drun } from "../utils/defer"
 import { PromiseType } from "../utils/types"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES = '履修登録・登録状況照会'
