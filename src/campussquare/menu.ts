@@ -19,8 +19,10 @@ export const fetchMenu = async (session: Fetch): Promise<Menu> => {
   const frame = await fetchFrame(session)
   const frameHTML = await frame.text()
   // menu の URL を探す
-  const frameFragment = JSDOM.fragment(frameHTML)
-  const frameSrc = frameFragment.querySelector('frame[name=menu]')!.getAttribute('src')!
+  // FIXME: なぜか frame を JSDOM.fragment ではパースできず Node が抜け落ちるため、生 JSDOM を使っている
+  const { window, window: { document } } = new JSDOM(frameHTML)
+  const frameSrc = document.querySelector('frame[name=menu]')!.getAttribute('src')!
+  window.close()
   const menuURL = resolve(frame.url, frameSrc)
   const resp = await session(menuURL, { credentials: 'includes' })
   return {

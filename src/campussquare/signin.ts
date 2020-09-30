@@ -95,8 +95,7 @@ export const login = async (fetch: Fetch, username: string, password: string, mf
     console.error(redirectText)
     throw new Error('失敗してそう')
   }
-
-  const redirectFragment = JSDOM.fragment(await resp.text())
+  const redirectFragment = JSDOM.fragment(redirectText)
   const redirectForm = redirectFragment.querySelectorAll('form')[0]
   const redirectResp = await fetch(resolve(resp.url, redirectForm.action), {
     method: 'post',
