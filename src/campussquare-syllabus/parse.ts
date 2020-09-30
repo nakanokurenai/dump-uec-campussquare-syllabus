@@ -1,6 +1,5 @@
 import { JSDOM } from 'jsdom'
 import sanitize from 'sanitize-html'
-import { drun } from '../utils/defer'
 
 type SyllabusTableTree = {
   frame: HTMLTableElement,
@@ -15,14 +14,9 @@ export type SyllabusTree = {
   children: SyllabusTree[]
 }
 
-export const parseSyllabusPageHTML = (html: string) => drun(defer => {
-  const { window } = new JSDOM(html)
-  defer(() => window.close())
-  return parseSyllabusPageDocument(window.document)
-})
-
-const parseSyllabusPageDocument = (document: Document) => {
-  const syllabusElements = Array.from(document.querySelectorAll('table[class="syllabus-frame"], table[class="syllabus-normal"]')) as HTMLTableElement[]
+export const parseSyllabusPageHTML = (html: string) => {
+  const fragment = JSDOM.fragment(html)
+  const syllabusElements = Array.from(fragment.querySelectorAll('table[class="syllabus-frame"], table[class="syllabus-normal"]')) as HTMLTableElement[]
 
   // たぶん想定と違うので落とす
   if (syllabusElements.length !== 5) {

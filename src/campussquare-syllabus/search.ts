@@ -4,7 +4,6 @@ import { convertFormElementsToPlainKeyValueObject } from '../utils/dom'
 import type { Fetch } from '../utils/baked-fetch'
 
 import { fetchFlowByMenu, fetchMenu, Menu } from '../campussquare/menu'
-import { drai, drun } from '../utils/defer'
 
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
@@ -53,18 +52,19 @@ const parseSearchResultTable = (table: HTMLTableElement) => {
     return [...acc, o]
   }, [] as (Record<string, string> & { '参照': HTMLInputElement })[])
 }
-const listReferSyllabusInSearchPage = async function* (session: Fetch, document: Document, url: string, bodyHTML: string = "") {
-  const searchResultTable = document.querySelector('table[class=normal]') as HTMLTableElement
+
+const listReferSyllabusInSearchPage = async function* (session: Fetch, fragment: DocumentFragment, url: string, bodyHTML: string = "") {
+  const searchResultTable = fragment.querySelector('table[class=normal]') as HTMLTableElement
   if (!searchResultTable) {
     console.error(bodyHTML)
-    const errors = document.getElementsByClassName('error')
+    const errors = fragment.querySelectorAll('.error')
     if (errors.length) {
       throw new Error(errors[0].textContent!.trim())
     }
     throw new Error('table みつからん!')
   }
   const tables = parseSearchResultTable(searchResultTable)
-  const jikanwariInputForm = document.getElementById('jikanwariInputForm')! as HTMLFormElement
+  const jikanwariInputForm = fragment.getElementById('jikanwariInputForm')! as HTMLFormElement
   const jikanwariInputInput = convertFormElementsToPlainKeyValueObject(jikanwariInputForm)
   for (const { 参照, ...digest } of tables) {
     const onclick = 参照.getAttribute('onclick')!
@@ -88,7 +88,7 @@ const listReferSyllabusInSearchPage = async function* (session: Fetch, document:
     // FIXME: 本当は eval 使いたくない
     yield eval(onclick) as ReferSyllabus
     // 検索結果に戻す
-    const backButton = Array.from(document.getElementsByTagName('a')).filter(v => v.textContent?.trim() === "検索結果に戻る")
+    const backButton = Array.from(fragment.querySelectorAll('a')).filter(v => v.textContent?.trim() === "検索結果に戻る")
     if (backButton.length) {
       console.log(backButton.length)
       await session(backButton[0].href, { credentials: 'includes' })
@@ -96,13 +96,12 @@ const listReferSyllabusInSearchPage = async function* (session: Fetch, document:
   }
 }
 
-const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => drun(async defer => {
+const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Record<string, string>) => {
   const syllabusSearchPage = await fetchFlowByMenu(session, menu, 'シラバス参照')
   const syllabusSearchPageHTML = await syllabusSearchPage.text()
-  const { window: syllabusSearchPageWindow, window: { document: syllabusSearchPageDocument } } = new JSDOM(syllabusSearchPageHTML)
-  defer(() => syllabusSearchPageWindow.close())
+  const syllabusSearchPageFragment = JSDOM.fragment(syllabusSearchPageHTML)
 
-  const jikanwariSearchForm = syllabusSearchPageDocument.getElementById('jikanwariSearchForm') as HTMLFormElement | null
+  const jikanwariSearchForm = syllabusSearchPageFragment.getElementById('jikanwariSearchForm') as HTMLFormElement | null
   if (!jikanwariSearchForm) {
     console.error(syllabusSearchPageHTML)
     throw new Error('時間割検索フォームがみあたりません')
@@ -120,11 +119,10 @@ const searchSyllabusSearchForm = async (session: Fetch, menu: Menu, options: Rec
     },
     credentials: 'includes',
   })
-})
+}
 
-export const search = (session: Fetch, searchOption: Option) => drai(async function* (defer) {
+export async function* search (session: Fetch, searchOption: Option) {
   const menu = await fetchMenu(session)
-  defer(() => menu.window.close())
 
   // memo: 一気に取ってこようとしても「ページの有効期限が過ぎています。」などと言われてしまうので、少なくしておきページを進めるたびに読み直す
   const displayCount = 20
@@ -135,15 +133,14 @@ export const search = (session: Fetch, searchOption: Option) => drai(async funct
   })
   const searchResult = await search()
   const searchResultText = await searchResult.text()
-  const { window: searchResultWindow, window: { document: searchResultDocument } } = new JSDOM(searchResultText)
-  defer(() => searchResultWindow.close())
+  const searchResultFragment = JSDOM.fragment(searchResultText)
   // memo: 1ページ目はページング不要なのでさきに返却する
-  for await (const refer of listReferSyllabusInSearchPage(session, searchResultDocument, searchResult.url, searchResultText)) {
+  for await (const refer of listReferSyllabusInSearchPage(session, searchResultFragment, searchResult.url, searchResultText)) {
     yield refer
   }
 
-  const parseNextPageUrls = (document: Document, baseURL: string) => {
-    const map = Array.from(document.body.getElementsByTagName('a')).reduce((s, i) => { s.set(Number.parseInt(i.textContent?.trim() || ""), resolve(baseURL, i.href)); return s }, new Map<number, string>())
+  const parseNextPageUrls = (fragment: DocumentFragment, baseURL: string) => {
+    const map = Array.from(fragment.querySelectorAll('a')).reduce((s, i) => { s.set(Number.parseInt(i.textContent?.trim() || ""), resolve(baseURL, i.href)); return s }, new Map<number, string>())
     map.delete(Number.NaN)
     if (map.size === 0) throw new Error('検索結果のページングをパースしようとしましたが、空しか帰ってきませんでした')
     return map
@@ -153,8 +150,8 @@ export const search = (session: Fetch, searchOption: Option) => drai(async funct
     if (pos >= splitted.length) throw new Error(`${target} を ${sep} で区切ったあと ${pos} 番目の要素を取得しようとしましたがありませんでした`)
     return splitted[pos]
   }
-  const parseResultCount = (document: Document) => {
-    const results = Array.from(document.body.childNodes).filter(n => n.nodeName === "#text").filter(t => t.textContent?.includes("の検索結果を表示"))
+  const parseResultCount = (fragment: DocumentFragment) => {
+    const results = Array.from(fragment.childNodes).filter(n => n.nodeName === "#text").filter(t => t.textContent?.includes("の検索結果を表示"))
     if (!results.length) throw new Error('検索結果ページに「の検索結果を」が含まれる #text ノードがありませんでした')
     const target = results[0].textContent!
     const count = splitExact(splitExact(target, '全部で', 1), '件あります', 0).trim()
@@ -162,7 +159,7 @@ export const search = (session: Fetch, searchOption: Option) => drai(async funct
   }
 
   // ページングを全部取得する
-  const syllabusCount = parseResultCount(searchResultDocument)
+  const syllabusCount = parseResultCount(searchResultFragment)
   const pageCount = Math.ceil(syllabusCount / displayCount)
   console.log(`fetching ${syllabusCount} syllabuses (from ${pageCount} pages)`)
   // memo: 1ページ目はすでに返却済みなので2から、1-indexed なのはページングのリンクに書かれている human-friendly なページ数と合わせるため
@@ -178,10 +175,8 @@ export const search = (session: Fetch, searchOption: Option) => drai(async funct
         i++
         if (i > targetPage) throw new Error("unreachable code")
 
-        const { window, window: { document } } = new JSDOM(currentPage)
-        defer(() => window.close())
         // FIXME: searchResultAgain.url ではなく現在参照しているページの URL を見るようにしたい
-        const nextPageUrlMap = parseNextPageUrls(document, searchResultAgain.url)
+        const nextPageUrlMap = parseNextPageUrls(JSDOM.fragment(currentPage), searchResultAgain.url)
         const maxNearlyPage = Array.from(nextPageUrlMap.keys()).filter(key => key <= targetPage).reduce(function max(max, mayMax) { return max < mayMax ? mayMax : max })
         console.log(`Move to page ${targetPage} via page ${maxNearlyPage}`)
         if (maxNearlyPage === targetPage) return nextPageUrlMap.get(maxNearlyPage)!
@@ -191,13 +186,12 @@ export const search = (session: Fetch, searchOption: Option) => drai(async funct
     })(cp)
     const currentSearchResult = await session(nextPageUrl, { credentials: 'includes' })
     const currentSearchResultHTML = await currentSearchResult.text()
-    const { window: currentSearchWindow, window: { document: currentSearchResultDocument } } = new JSDOM(currentSearchResultHTML)
-    defer(() => currentSearchWindow.close())
-    for await (const refer of listReferSyllabusInSearchPage(session, currentSearchResultDocument, currentSearchResult.url, currentSearchResultHTML)) {
+    const currentSearchResultFragment = JSDOM.fragment(currentSearchResultHTML)
+    for await (const refer of listReferSyllabusInSearchPage(session, currentSearchResultFragment, currentSearchResult.url, currentSearchResultHTML)) {
       yield refer
     }
   }
-})
+}
 
 export const fetchSyllabusHTMLByRefer = async (session: Fetch, refer: ReferSyllabus) => {
   const form = { ...refer.initForm(), ...refer.options }
