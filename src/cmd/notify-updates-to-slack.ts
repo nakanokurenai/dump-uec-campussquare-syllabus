@@ -32,6 +32,8 @@ const UPDATED_AT_PATH = {
 }
 
 const postToSlack = async (s: SyllabusJSON[0], updatedAt: Date) => {
+	const facility = pick(s.contentTree, { titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"], contentKey: "開講コース・課程/Faculty offering the course" })
+	const yearOffered = pick(s.contentTree, { titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"], contentKey: "開講年次/Year offered" })
 	const text = `${s.digest.科目} のシラバスが更新されました`
 	const res = await fetch(SLACK_WEBHOOK_URI, {
 		method: "POST",
@@ -39,7 +41,7 @@ const postToSlack = async (s: SyllabusJSON[0], updatedAt: Date) => {
 			text,
 			blocks: [
 				{
-					type: "header",
+					type: "section",
 					text: {
 						type: "plain_text",
 						text,
@@ -50,7 +52,7 @@ const postToSlack = async (s: SyllabusJSON[0], updatedAt: Date) => {
 					elements: [
 						{
 							type: "mrkdwn",
-							text: `${updatedAt.toLocaleString()} | 時間割コード: ${s.digest.時間割コード}`
+							text: `${updatedAt.toLocaleString()} | ${facility} | 開講年次: ${yearOffered} | 時間割コード: ${s.digest.時間割コード}`
 						}
 					]
 				}
@@ -68,6 +70,7 @@ const postToSlack = async (s: SyllabusJSON[0], updatedAt: Date) => {
 
 const main = async (fromDate: Date) => {
 	const sj = await readSyllabus()
+	const toNotify: { syllabus: SyllabusJSON[0], updatedAt: Date }[] = []
 	for (const s of sj) {
 		const updatedAtDateString = pick(s.contentTree, UPDATED_AT_PATH)
 		if (!updatedAtDateString) throw new Error("NG")
@@ -77,7 +80,10 @@ const main = async (fromDate: Date) => {
 			continue
 		}
 
-		await postToSlack(s, updatedAt)
+		toNotify.push({ syllabus: s, updatedAt })
+	}
+	for (const s of toNotify.sort((a, b) => a.updatedAt.getTime() < b.updatedAt.getTime() ? -1 : 1)) {
+		await postToSlack(s.syllabus, s.updatedAt)
 	}
 }
 
