@@ -6,6 +6,7 @@ import {
 	ReferSyllabus,
 	search,
 } from "./campussquare-syllabus/search"
+import { PromiseGroup } from "./utils/promise-group"
 
 const question = (question: string) =>
 	new Promise<string>((res, rej) => {
@@ -62,22 +63,30 @@ async function main() {
 		await signin.exportSession(session)
 	}
 
-	const syllabusPages: { refer: ReferSyllabus; syllabusHTML: string }[] = []
+	const g = new PromiseGroup<{ refer: ReferSyllabus; syllabusHTML: string }>(5)
 	for await (const refer of search(session, {
 		nenji: "指示なし",
 		// デフォルト値はアカウントの所属
 		jikanwariShozokuCode: "指示なし",
 		gakkiKubunCode: "指示なし",
 	})) {
-		const syllabusHTML = await fetchSyllabusHTMLByRefer(session, refer)
-		syllabusPages.push({ refer, syllabusHTML })
-		// 途中で失敗したときの経過を保存しておきたい
+		g.enqueue(() => fetchSyllabusHTMLByRefer(session, refer).then(syllabusHTML => ({ syllabusHTML, refer })))
+		await g.acquire()
+		// 途中経過の保存
+		const pages = await g.allFulfilled()
 		writeFileSync(
 			"./syllabus_temp.json",
-			JSON.stringify(syllabusPages, null, 2),
+			JSON.stringify(pages, null, 2),
 			{ encoding: "utf8" }
 		)
 	}
+	const syllabusPages = await g.all()
+	// 経過の保存
+	writeFileSync(
+		"./syllabus_temp.json",
+		JSON.stringify(syllabusPages, null, 2),
+		{ encoding: "utf8" }
+	)
 
 	/* export it */
 	const exp = await Promise.all(
