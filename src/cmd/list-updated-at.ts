@@ -1,25 +1,24 @@
 import { pick } from "../campussquare-syllabus/tree"
-import { parse, differenceInDays } from "date-fns"
+import { parse, differenceInCalendarDays } from "date-fns"
+import { parseUpdatedAtLikeDateStringAsJSTDate } from "../campussquare-syllabus/parse"
 
 const UPDATED_AT_PATH = {
-	path: ["講義概要/Course Information", "科目基礎情報/General Information"] as [string, string],
-	key: "更新日/Last updated"
+	titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"] as [string, string],
+	contentKey: "更新日/Last updated"
 }
-
-const parseSyllabusUpdatedAt = (d: string) => parse(d + " +0900", "yyyy/MM/dd HH:mm:ss xx", new Date(0))
 
 const read = () => require("../../syllabus.json")
 
 const main = async (from: Date) => {
-	console.log(from)
+	console.log(from.toLocaleString('ja-JP'))
 	const syllabus: any[] = read()
 	syllabus.forEach(s => {
-		const ds = pick(s["contentTree"], { titlePath: UPDATED_AT_PATH.path, contentKey: UPDATED_AT_PATH.key })
+		const ds = pick(s["contentTree"], UPDATED_AT_PATH)
 		if (!ds) throw new Error()
-		const d = parseSyllabusUpdatedAt(ds)
-		const differ = differenceInDays(d, from)
+		const d = parseUpdatedAtLikeDateStringAsJSTDate(ds)
+		const differ = differenceInCalendarDays(d, from)
 		if (differ >= 0) {
-			console.log(`${s["科目"]}: ${d}`)
+			console.log(`${s["科目"]}: ${d.toLocaleString('ja-JP')}`)
 		}
 	})
 }

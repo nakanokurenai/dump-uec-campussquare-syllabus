@@ -1,6 +1,7 @@
 import { JSDOM } from "jsdom"
 import sanitize from "sanitize-html"
 import { SyllabusTree } from './tree'
+import { parse } from 'date-fns'
 
 // 中間表現
 type SyllabusTableTree = {
@@ -76,10 +77,12 @@ export const parseSyllabusPageHTML = (html: string) => {
 	): SyllabusTree => ({
 		title: tree.frame.textContent!.trim(),
 		children: tree.children.map((t) => convertSyllabusTableTree(t)),
-		content: tree.content ? convertContent(tree.content) : null,
+		content: tree.content ? convertContent(tree.content) : undefined,
 	})
 
 	const t = frameTree(syllabusElements)
 	const r = convertSyllabusTableTree(t)
 	return r
 }
+
+export const parseUpdatedAtLikeDateStringAsJSTDate = (dateString: string) => parse(dateString + " +0900", "yyyy/MM/dd HH:mm:ss xx", new Date(0))

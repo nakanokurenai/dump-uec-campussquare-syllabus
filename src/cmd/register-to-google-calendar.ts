@@ -1,5 +1,5 @@
 import $, { Transformer } from "transform-ts"
-import { convertSyllabusTreeToMarkdown, pick } from "../campussquare-syllabus/tree"
+import { convertSyllabusTreeToMarkdown, pick, TREE_SCHEMA } from "../campussquare-syllabus/tree"
 import * as googleapis from "googleapis"
 
 // env
@@ -19,7 +19,7 @@ const loadEnv = () => {
 const { CLIENT_ID, CLIENT_SECRET } = loadEnv()
 
 // fs ni suru
-const readSyllabus = (): Promise<SYLLABUS> =>
+const readSyllabus = (): Promise<SyllabusJSON> =>
 	Promise.resolve(
 		SYLLABUS_SCHEMA.transformOrThrow(require("../../syllabus.json"))
 	)
@@ -56,26 +56,15 @@ const SYLLABUS_SCHEMA = $.array(
 		digest: $.obj({
 			学期: $.literal("前学期", "後学期"),
 			開講: $.literal("前学期", "後学期"),
-			// TODO: 本当は $.array($.string),
+			// TODO: 本当は $.array($.string) にしたい
 			"曜日・時限": $.string,
 			時間割コード: $.string,
 			科目: $.string,
 		}),
-		contentTree: $.obj({
-			title: $.string,
-			children: $.array(
-				$.obj({
-					title: $.string,
-					// :innocent:
-					// このへんちゃんと本体に解釈させる
-					// recursive な type は解釈しにくいのでそこも余力あれば修正する
-					content: $.any,
-				})
-			),
-		}),
+		contentTree: TREE_SCHEMA,
 	})
 )
-type SYLLABUS = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
+type SyllabusJSON = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
 
 type Time = {
 	hours: number

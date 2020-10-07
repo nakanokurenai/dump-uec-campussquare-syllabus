@@ -1,8 +1,11 @@
+import $ from 'transform-ts'
+import { record as $record } from '../transform-ts/record'
+
 export type SyllabusTree = {
 	title: string
-	content: { [key: string]: string } | null
+	content?: { [key: string]: string }
 	// JSON からパースするときにこれがない扱いにしたほうが楽なことがあり optional にしたほうがいいかも…
-	children: SyllabusTree[]
+	children?: SyllabusTree[]
 }
 
 export const convertSyllabusTreeToMarkdown = (
@@ -61,3 +64,13 @@ export const pick = (tree: SyllabusTree, { titlePath, contentKey }: Path): strin
 	if (!c.content) throw new Error("タイトルパスは見つかりましたが、コンテンツが含まれませんでした")
 	return c.content[contentKey]
 }
+
+export const TREE_SCHEMA = $.obj<SyllabusTree>({
+	title: $.string,
+	children: $.array(
+		$.obj({
+			title: $.string,
+			content: $record($.string, $.string),
+		})
+	),
+})
