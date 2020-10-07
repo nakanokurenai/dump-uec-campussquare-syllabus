@@ -92,7 +92,7 @@ async function main() {
 	const exp = await Promise.all(
 		syllabusPages.map(async ({ refer, syllabusHTML }, i) => {
 			return {
-				...refer.digest,
+				digest: refer.digest,
 				contentTree: await (() => {
 					try {
 						console.log(
