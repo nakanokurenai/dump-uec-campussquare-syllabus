@@ -1,17 +1,12 @@
 import { JSDOM } from "jsdom"
 import sanitize from "sanitize-html"
+import { SyllabusTree } from './tree'
 
+// 中間表現
 type SyllabusTableTree = {
 	frame: HTMLTableElement
 	children: SyllabusTableTree[]
 	content?: HTMLTableElement
-}
-
-export type SyllabusTree = {
-	title: string
-	content: { [key: string]: string } | null
-	// JSON からパースするときにこれがない扱いにしたほうが楽なことがあり optional にしたほうがいいかも…
-	children: SyllabusTree[]
 }
 
 export const parseSyllabusPageHTML = (html: string) => {
@@ -87,39 +82,4 @@ export const parseSyllabusPageHTML = (html: string) => {
 	const t = frameTree(syllabusElements)
 	const r = convertSyllabusTableTree(t)
 	return r
-}
-
-export const convertSyllabusTreeToMarkdown = (
-	{ content, title, children }: SyllabusTree,
-	depth = 1
-): string => {
-	return `\
-${"#".repeat(depth)} ${title}
-${
-	content
-		? "\n" +
-		  Object.entries(content)
-				.filter(([, value]) => value.trim())
-				.map(([key, value]) => {
-					const padding = "    "
-					return (
-						`- ${key}\n` +
-						`${padding}${value
-							.split("\n")
-							.map((c) => c.trim().replace(/\s+/g, " "))
-							.join(`\n${padding}`)}`
-					)
-				})
-				.join("\n")
-		: ""
-}\
-${
-	children && children.length
-		? "\n" +
-		  children
-				.map((c) => convertSyllabusTreeToMarkdown(c, depth + 1))
-				.join("\n")
-		: ""
-}
-`
 }

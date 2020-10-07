@@ -1,5 +1,5 @@
 import $, { Transformer } from "transform-ts"
-import { convertSyllabusTreeToMarkdown } from "../campussquare-syllabus/parse"
+import { convertSyllabusTreeToMarkdown, pick } from "../campussquare-syllabus/tree"
 import * as googleapis from "googleapis"
 
 // env
@@ -76,33 +76,6 @@ const SYLLABUS_SCHEMA = $.array(
 	})
 )
 type SYLLABUS = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
-
-type ContentNode = {
-	title: string
-	children?: ContentNode[]
-	content?: any
-}
-
-type Path = [[string, string], string]
-const findPath = <P extends Path>(p: P, t: SYLLABUS[0]["contentTree"]) => {
-	const titlePath = p[0]
-	const findContent = (
-		c: ContentNode[],
-		p: string[]
-	): ContentNode | undefined => {
-		const t = c.find((n) => n.title === p[0])
-		if (!t) return t
-		if (p.length === 1) return t
-		if (!t.children) throw new Error("omg")
-		return findContent(t.children, p.slice(1))
-	}
-	const c = findContent([t], titlePath)
-	if (!c) throw new Error("???")
-	if (!c.content) throw new Error("?")
-
-	const content = c.content as Record<string, string>
-	return content[p[1]]
-}
 
 type Time = {
 	hours: number
@@ -229,7 +202,8 @@ const main = async () => {
 			// note: スキップされた科目 (R2 K過程 前期 美術) が他になっていた
 			if (s.digest["曜日・時限"] === "他") return
 			const jigen = s.digest["曜日・時限"].split(",").map((j) => j.trim())
-			const 科目番号 = findPath(CODE_PATH, s.contentTree)
+			// FIXME: 型がおかしいのでやめたい
+			const 科目番号 = pick(s.contentTree as any, { titlePath: CODE_PATH[0], contentKey: CODE_PATH[1] })!
 			return {
 				...s.digest,
 				"曜日・時限": jigen,
