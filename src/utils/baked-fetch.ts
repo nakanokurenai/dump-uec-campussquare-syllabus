@@ -1,6 +1,9 @@
 import fetch, { Response, RequestInfo, RequestInit } from "node-fetch"
 import toughCookie from "tough-cookie"
 import { resolve } from "url"
+import ProxyAgent from 'proxy-agent'
+
+const proxyAgent = new ProxyAgent("") // FIXME: undefined を本来渡せてよいのに型がおかしい. falsy かどうかのみ検査しているので空文字を渡してやる
 
 type ArgumentsOf<T extends Function> = T extends (...args: infer T) => any
 	? T
@@ -86,6 +89,9 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 				console.log(`   headers: [${headers}]`)
 				return [info, init]
 			},
+			(info, init = {}) => {
+				return [info, { ...init, agent: proxyAgent }]
+			}
 		]),
 		applyResponseMiddlewares([
 			(r) => {

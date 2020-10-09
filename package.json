@@ -13,6 +13,7 @@
     "iconv-lite": "^0.5.1",
     "jsdom": "^16.2.2",
     "node-fetch": "^2.6.0",
+    "proxy-agent": "^4.0.0",
     "sanitize-html": "^1.23.0",
     "tough-cookie": "^4.0.0",
     "transform-ts": "^0.3.0"
