@@ -1,5 +1,5 @@
-import $ from 'transform-ts'
-import { record as $record } from '../transform-ts/record'
+import $ from "transform-ts"
+import { record as $record } from "../transform-ts/record"
 
 export type SyllabusTree = {
 	title: string
@@ -44,10 +44,13 @@ ${
 }
 
 export type Path = {
-	titlePath: [string, string],
-	contentKey: string,
+	titlePath: [string, string]
+	contentKey: string
 }
-export const pick = (tree: SyllabusTree, { titlePath, contentKey }: Path): string | undefined => {
+export const pick = (
+	tree: SyllabusTree,
+	{ titlePath, contentKey }: Path
+): string | undefined => {
 	const findContent = (
 		c: SyllabusTree[],
 		p: string[]
@@ -61,7 +64,10 @@ export const pick = (tree: SyllabusTree, { titlePath, contentKey }: Path): strin
 
 	const c = findContent([tree], titlePath)
 	if (!c) return undefined
-	if (!c.content) throw new Error("タイトルパスは見つかりましたが、コンテンツが含まれませんでした")
+	if (!c.content)
+		throw new Error(
+			"タイトルパスは見つかりましたが、コンテンツが含まれませんでした"
+		)
 	return c.content[contentKey]
 }
 

@@ -159,8 +159,10 @@ const main = async () => {
 	const registeredCources = await fetchRegisteredCources(session, menu)
 
 	const syllabusPages: {
-		digest: PromiseType<ReturnType<typeof fetchRegisteredCources>>[number]['refer']['digest']
-		contentTree: SyllabusTree | null,
+		digest: PromiseType<
+			ReturnType<typeof fetchRegisteredCources>
+		>[number]["refer"]["digest"]
+		contentTree: SyllabusTree | null
 		syllabusHTML: string
 	}[] = []
 	for (const cource of registeredCources) {
@@ -201,7 +203,9 @@ const main = async () => {
 		)
 		const syllabusHTML = await syllabusPage.text()
 
-		const tryOrNull = async <T>(p: () => Promise<T> | T): Promise<T | null> => {
+		const tryOrNull = async <T>(
+			p: () => Promise<T> | T
+		): Promise<T | null> => {
 			try {
 				return p()
 			} catch (e) {
@@ -211,7 +215,13 @@ const main = async () => {
 		}
 
 		// index.ts とフォーマットを合わせる
-		syllabusPages.push({ digest: cource.refer.digest, contentTree: await tryOrNull(() => parseSyllabusPageHTML(syllabusHTML)), syllabusHTML })
+		syllabusPages.push({
+			digest: cource.refer.digest,
+			contentTree: await tryOrNull(() =>
+				parseSyllabusPageHTML(syllabusHTML)
+			),
+			syllabusHTML,
+		})
 		await fs.promises.writeFile(
 			"./risyuu-syllabuses.json",
 			JSON.stringify(syllabusPages, null, 2),
@@ -225,9 +235,11 @@ const main = async () => {
 	)
 }
 
-main().then(() => {
-	process.exit(0)
-}).catch((e) => {
-	console.error(e)
-	process.exit(1)
-})
+main()
+	.then(() => {
+		process.exit(0)
+	})
+	.catch((e) => {
+		console.error(e)
+		process.exit(1)
+	})

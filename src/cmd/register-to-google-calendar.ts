@@ -1,5 +1,9 @@
 import $, { Transformer } from "transform-ts"
-import { convertSyllabusTreeToMarkdown, pick, TREE_SCHEMA } from "../campussquare-syllabus/tree"
+import {
+	convertSyllabusTreeToMarkdown,
+	pick,
+	TREE_SCHEMA,
+} from "../campussquare-syllabus/tree"
 import * as googleapis from "googleapis"
 
 // env
@@ -192,7 +196,10 @@ const main = async () => {
 			if (s.digest["曜日・時限"] === "他") return
 			const jigen = s.digest["曜日・時限"].split(",").map((j) => j.trim())
 			// FIXME: 型がおかしいのでやめたい
-			const 科目番号 = pick(s.contentTree as any, { titlePath: CODE_PATH[0], contentKey: CODE_PATH[1] })!
+			const 科目番号 = pick(s.contentTree as any, {
+				titlePath: CODE_PATH[0],
+				contentKey: CODE_PATH[1],
+			})!
 			return {
 				...s.digest,
 				"曜日・時限": jigen,

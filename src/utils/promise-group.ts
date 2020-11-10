@@ -14,18 +14,24 @@ export class PromiseGroup<T> {
 		const addTask = () => {
 			const task = this.tasks.pop()
 			if (!task) {
-				console.log('task を取得しようとしたが、失敗した')
+				console.log("task を取得しようとしたが、失敗した")
 				return
 			}
 			const len = this.promises.length
 			// filter がめっちゃ時間かかるけどまぁいいか
-			this.promises.push(task().finally(() => { this.fulfilled.push(len) }))
+			this.promises.push(
+				task().finally(() => {
+					this.fulfilled.push(len)
+				})
+			)
 		}
-		if (this.capacity > (this.promises.length-this.fulfilled.length)) {
+		if (this.capacity > this.promises.length - this.fulfilled.length) {
 			return addTask()
 		}
 		// 追加できないなら race してから追加
-		const nonFulfilled = this.promises.filter((_, i) => !this.fulfilled.includes(i))
+		const nonFulfilled = this.promises.filter(
+			(_, i) => !this.fulfilled.includes(i)
+		)
 		if (!nonFulfilled.length) throw new Error("unreachable code")
 		await Promise.race(nonFulfilled)
 		return addTask()
@@ -35,6 +41,8 @@ export class PromiseGroup<T> {
 	}
 	// utility
 	async allFulfilled(): Promise<T[]> {
-		return Promise.all(this.promises.filter((_, i) => this.fulfilled.includes(i)))
+		return Promise.all(
+			this.promises.filter((_, i) => this.fulfilled.includes(i))
+		)
 	}
 }

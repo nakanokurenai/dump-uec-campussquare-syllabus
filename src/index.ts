@@ -63,22 +63,27 @@ async function main() {
 		await signin.exportSession(session)
 	}
 
-	const g = new PromiseGroup<{ refer: ReferSyllabus; syllabusHTML: string }>(5)
+	const g = new PromiseGroup<{ refer: ReferSyllabus; syllabusHTML: string }>(
+		5
+	)
 	for await (const refer of search(session, {
 		nenji: "指示なし",
 		// デフォルト値はアカウントの所属
 		jikanwariShozokuCode: "指示なし",
 		gakkiKubunCode: "指示なし",
 	})) {
-		g.enqueue(() => fetchSyllabusHTMLByRefer(session, refer).then(syllabusHTML => ({ syllabusHTML, refer })))
+		g.enqueue(() =>
+			fetchSyllabusHTMLByRefer(session, refer).then((syllabusHTML) => ({
+				syllabusHTML,
+				refer,
+			}))
+		)
 		await g.acquire()
 		// 途中経過の保存
 		const pages = await g.allFulfilled()
-		writeFileSync(
-			"./syllabus_temp.json",
-			JSON.stringify(pages, null, 2),
-			{ encoding: "utf8" }
-		)
+		writeFileSync("./syllabus_temp.json", JSON.stringify(pages, null, 2), {
+			encoding: "utf8",
+		})
 	}
 	const syllabusPages = await g.all()
 	// 経過の保存

@@ -1,7 +1,7 @@
-import $, { Transformer } from 'transform-ts'
-import { parseUpdatedAtLikeDateStringAsJSTDate } from '../campussquare-syllabus/parse'
-import { pick, TREE_SCHEMA } from '../campussquare-syllabus/tree'
-import fetch from 'node-fetch'
+import $, { Transformer } from "transform-ts"
+import { parseUpdatedAtLikeDateStringAsJSTDate } from "../campussquare-syllabus/parse"
+import { pick, TREE_SCHEMA } from "../campussquare-syllabus/tree"
+import fetch from "node-fetch"
 
 const SLACK_WEBHOOK_URI = process.env.SLACK_WEBHOOK_URI!
 
@@ -26,13 +26,28 @@ const readSyllabus = (): Promise<SyllabusJSON> =>
 	)
 
 const UPDATED_AT_PATH = {
-	titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"] as [string, string],
-	contentKey: "更新日/Last updated"
+	titlePath: [
+		"講義概要/Course Information",
+		"科目基礎情報/General Information",
+	] as [string, string],
+	contentKey: "更新日/Last updated",
 }
 
 const toBlock = (s: SyllabusJSON[0], updatedAt: Date) => {
-	const facility = pick(s.contentTree, { titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"], contentKey: "開講コース・課程/Faculty offering the course" })
-	const yearOffered = pick(s.contentTree, { titlePath: ["講義概要/Course Information", "科目基礎情報/General Information"], contentKey: "開講年次/Year offered" })
+	const facility = pick(s.contentTree, {
+		titlePath: [
+			"講義概要/Course Information",
+			"科目基礎情報/General Information",
+		],
+		contentKey: "開講コース・課程/Faculty offering the course",
+	})
+	const yearOffered = pick(s.contentTree, {
+		titlePath: [
+			"講義概要/Course Information",
+			"科目基礎情報/General Information",
+		],
+		contentKey: "開講年次/Year offered",
+	})
 	const text = `${s.digest.科目} のシラバスが更新されました`
 	return {
 		type: "context",
@@ -43,22 +58,27 @@ const toBlock = (s: SyllabusJSON[0], updatedAt: Date) => {
 			},
 			{
 				type: "mrkdwn",
-				text: `${updatedAt.toLocaleString()} | ${facility} | 開講年次: ${yearOffered} | 時間割コード: ${s.digest.時間割コード}`
-			}
-		]
+				text: `${updatedAt.toLocaleString()} | ${facility} | 開講年次: ${yearOffered} | 時間割コード: ${
+					s.digest.時間割コード
+				}`,
+			},
+		],
 	}
 }
 
 const split = <T>(ta: T[], times: number): T[][] => {
-	return ta.reduce((res, current) => {
-		const t = res[res.length-1]
-		if (t.length >= times) {
-			res.push([current])
+	return ta.reduce(
+		(res, current) => {
+			const t = res[res.length - 1]
+			if (t.length >= times) {
+				res.push([current])
+				return res
+			}
+			t.push(current)
 			return res
-		}
-		t.push(current)
-		return res
-	}, [[]] as T[][])
+		},
+		[[]] as T[][]
+	)
 }
 
 const postToSlack = async (allBlocks: ReturnType<typeof toBlock>[]) => {
@@ -70,8 +90,8 @@ const postToSlack = async (allBlocks: ReturnType<typeof toBlock>[]) => {
 				blocks,
 			}),
 			headers: {
-				'Content-Type': 'application/json'
-			}
+				"Content-Type": "application/json",
+			},
 		})
 		if (res.status > 200) {
 			console.log(res.status)
@@ -80,17 +100,20 @@ const postToSlack = async (allBlocks: ReturnType<typeof toBlock>[]) => {
 	}
 }
 
-const inRange = (target: Date, from: Date, to: Date) => from.getTime() <= target.getTime() && target.getTime() <= to.getTime()
+const inRange = (target: Date, from: Date, to: Date) =>
+	from.getTime() <= target.getTime() && target.getTime() <= to.getTime()
 
 const main = async (fromDate: Date, endDate: Date) => {
 	console.log(fromDate)
 	console.log(endDate)
 	const sj = await readSyllabus()
-	const blocks: { block: ReturnType<typeof toBlock>, updatedAt: Date }[] = []
+	const blocks: { block: ReturnType<typeof toBlock>; updatedAt: Date }[] = []
 	for (const s of sj) {
 		const updatedAtDateString = pick(s.contentTree, UPDATED_AT_PATH)
 		if (!updatedAtDateString) throw new Error("NG")
-		const updatedAt = parseUpdatedAtLikeDateStringAsJSTDate(updatedAtDateString)
+		const updatedAt = parseUpdatedAtLikeDateStringAsJSTDate(
+			updatedAtDateString
+		)
 		if (!inRange(updatedAt, fromDate, endDate)) {
 			continue
 		}
@@ -98,10 +121,19 @@ const main = async (fromDate: Date, endDate: Date) => {
 		blocks.push({ block: toBlock(s, updatedAt), updatedAt })
 	}
 	if (!blocks.length) return
-	await postToSlack(blocks.sort((a, b) => a.updatedAt.getTime() < b.updatedAt.getTime() ? -1 : 1).map(b => b.block))
+	await postToSlack(
+		blocks
+			.sort((a, b) =>
+				a.updatedAt.getTime() < b.updatedAt.getTime() ? -1 : 1
+			)
+			.map((b) => b.block)
+	)
 }
 
-main(parseUpdatedAtLikeDateStringAsJSTDate(process.argv[2]), parseUpdatedAtLikeDateStringAsJSTDate(process.argv[3]))
+main(
+	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[2]),
+	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[3])
+)
 	.then(() => {
 		process.exit(0)
 	})
