@@ -7,6 +7,8 @@ import { JSDOM } from "jsdom"
 import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
 import { resolve } from "url"
 import { PromiseType } from "../utils/types"
+import { SyllabusTree } from "../campussquare-syllabus/tree"
+import { parseSyllabusPageHTML } from "../campussquare-syllabus/parse"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"
@@ -157,7 +159,8 @@ const main = async () => {
 	const registeredCources = await fetchRegisteredCources(session, menu)
 
 	const syllabusPages: {
-		cource: PromiseType<ReturnType<typeof fetchRegisteredCources>>[number]
+		digest: PromiseType<ReturnType<typeof fetchRegisteredCources>>[number]['refer']['digest']
+		contentTree: SyllabusTree | null,
 		syllabusHTML: string
 	}[] = []
 	for (const cource of registeredCources) {
@@ -198,7 +201,17 @@ const main = async () => {
 		)
 		const syllabusHTML = await syllabusPage.text()
 
-		syllabusPages.push({ cource, syllabusHTML })
+		const tryOrNull = async <T>(p: () => Promise<T> | T): Promise<T | null> => {
+			try {
+				return p()
+			} catch (e) {
+				console.error(e)
+				return null
+			}
+		}
+
+		// index.ts とフォーマットを合わせる
+		syllabusPages.push({ digest: cource.refer.digest, contentTree: await tryOrNull(() => parseSyllabusPageHTML(syllabusHTML)), syllabusHTML })
 		await fs.promises.writeFile(
 			"./risyuu-syllabuses.json",
 			JSON.stringify(syllabusPages, null, 2),
@@ -212,7 +225,9 @@ const main = async () => {
 	)
 }
 
-main().catch((e) => {
+main().then(() => {
+	process.exit(0)
+}).catch((e) => {
 	console.error(e)
 	process.exit(1)
 })
