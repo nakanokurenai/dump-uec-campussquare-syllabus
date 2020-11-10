@@ -240,7 +240,6 @@ const main = async () => {
 		})
 		.filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
 
-	// TODO: 本当は学期の始まりの日から計算する
 	const startDay = SCHEDULE["2020"][season].start
 	const firstBaseDay = new Date(
 		`${startDay[0]}-${startDay[1]
