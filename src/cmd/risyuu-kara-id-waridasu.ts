@@ -104,15 +104,18 @@ const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
 		.filter((n) => !n.textContent?.includes("未登録"))
 		.map((n) => n.textContent?.trim() || "")
 		.map((t) => t.split("\n").map((l) => l.trim()))
-		.map((v) => {
+		.reduce((acc, v) => {
 			if (v.length !== 3)
 				throw new Error(`3行に分割できていません: ${JSON.stringify(v)}`)
-			return {
+			// 2コマに跨がるようなコマを除外する
+			if (acc.some((t) => t.timetableCode === v[0])) return acc
+			acc.push({
 				timetableCode: v[0],
 				course: v[1],
 				lecturers: v[2],
-			}
-		})
+			})
+			return acc
+		}, [] as { timetableCode: string; course: string; lecturers: string }[])
 
 	// シラバス要約 (refer) を用いて "開講所属コード" を割り出す
 	return registered.map(({ timetableCode, ...rest }) => {

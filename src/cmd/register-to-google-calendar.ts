@@ -70,6 +70,31 @@ const SYLLABUS_SCHEMA = $.array(
 )
 type SyllabusJSON = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
 
+// どこかに知識を移譲したい。また、長期休みを考慮していない
+const SCHEDULE = {
+	"2020": {
+		前学期: {
+			start: [2020, 5, 7],
+			end: [2020, 9, 8],
+		},
+		後学期: {
+			start: [2020, 10, 1],
+			end: [2021, 2, 18],
+		},
+	},
+} as const
+
+const calcReccurence = (y: "2020", g: "前学期" | "後学期") => {
+	// ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
+	// 終了日の 23:59:59 にする
+	const recEveryWeekToYMD = (y: number, m: number, d: number) =>
+		`RRULE:FREQ=DAILY;INTERVAL=7;UNTIL=${y}${m
+			.toString(10)
+			.padStart(2, "0")}${d.toString(10).padStart(2, "0")}T145959Z`
+	const end = SCHEDULE[y][g].end
+	return recEveryWeekToYMD(end[0], end[1], end[2])
+}
+
 type Time = {
 	hours: number
 	minutes: number
@@ -80,7 +105,7 @@ type Cal = {
 	dayOfWeek: number
 	reccurence: string
 }
-const calculateCalendarFromJigen = (j: string[]): Cal => {
+const calculateCalendarFromJigen = (j: string[], reccurence: string): Cal => {
 	// JavaScript の day of week
 	const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"]
 	const fromTimeString = (s: string): Time => {
@@ -153,9 +178,7 @@ const calculateCalendarFromJigen = (j: string[]): Cal => {
 		})
 	return {
 		...schedule,
-		// TODO: 年 + 学期から期日を生成したい, とりあえず2020年前期の終了日の 23:59 としている
-		// ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
-		reccurence: "RRULE:FREQ=DAILY;INTERVAL=7;UNTIL=20200901T145959Z",
+		reccurence,
 	}
 }
 
@@ -190,7 +213,9 @@ const main = async () => {
 	if (!calendarId) throw new Error("ないんだけど？")
 	console.log(calendarId)
 
-	const courses = (await readSyllabus())
+	const syllabuses = await readSyllabus()
+	const season = syllabuses[0].digest.学期
+	const courses = syllabuses
 		.map((s) => {
 			// note: スキップされた科目 (R2 K過程 前期 美術) が他になっていた
 			if (s.digest["曜日・時限"] === "他") return
@@ -204,7 +229,10 @@ const main = async () => {
 				...s.digest,
 				"曜日・時限": jigen,
 				科目番号,
-				calendar: calculateCalendarFromJigen(jigen),
+				calendar: calculateCalendarFromJigen(
+					jigen,
+					calcReccurence("2020", s.digest.学期)
+				),
 				description: convertSyllabusTreeToMarkdown(
 					s.contentTree as any
 				),
@@ -213,7 +241,14 @@ const main = async () => {
 		.filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
 
 	// TODO: 本当は学期の始まりの日から計算する
-	const firstBaseDay = new Date("2020-05-16T00:00:00+09:00")
+	const startDay = SCHEDULE["2020"][season].start
+	const firstBaseDay = new Date(
+		`${startDay[0]}-${startDay[1]
+			.toString()
+			.padStart(2, "0")}-${startDay[2]
+			.toString()
+			.padStart(2, "0")}T00:00:00+09:00`
+	)
 
 	// TODO: 差分計算に使える情報を入れる (contentTree markdown ?)
 	const persisted: {
