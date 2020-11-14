@@ -6,3 +6,4 @@ node_modules
 *.js
 *-error.log
 dist
+*.sh
