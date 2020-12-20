@@ -1,6 +1,6 @@
-import { pick } from "../campussquare-syllabus/tree"
+import { pick } from "ducs-lib/dist/campussquare-syllabus/tree"
 import { parse, differenceInCalendarDays } from "date-fns"
-import { parseUpdatedAtLikeDateStringAsJSTDate } from "../campussquare-syllabus/parse"
+import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquare-syllabus/parse"
 
 const UPDATED_AT_PATH = {
 	titlePath: [

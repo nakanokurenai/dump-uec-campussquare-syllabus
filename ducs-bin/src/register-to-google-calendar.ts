@@ -3,7 +3,7 @@ import {
 	convertSyllabusTreeToMarkdown,
 	pick,
 	TREE_SCHEMA,
-} from "../campussquare-syllabus/tree"
+} from "ducs-lib/dist/campussquare-syllabus/tree"
 import * as googleapis from "googleapis"
 
 // env

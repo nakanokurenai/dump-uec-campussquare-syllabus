@@ -3,5 +3,7 @@ node_modules
 !tsconfig.json
 !package.json
 *.log
-src/**/*.js
+*.js
 *-error.log
+dist
+*.sh

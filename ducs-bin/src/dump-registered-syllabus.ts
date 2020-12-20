@@ -1,14 +1,18 @@
-import { search } from "../campussquare-syllabus/search"
-import { fetchFlowByMenu, fetchMenu, Menu } from "../campussquare/menu"
-import * as signin from "../campussquare/signin"
-import { Fetch } from "../utils/baked-fetch"
+import { search } from "ducs-lib/dist/campussquare-syllabus/search"
+import {
+	fetchFlowByMenu,
+	fetchMenu,
+	Menu,
+} from "ducs-lib/dist/campussquare/menu"
+import * as signin from "ducs-lib/dist/campussquare/signin"
+import { Fetch } from "ducs-lib/dist/utils/baked-fetch"
 import * as fs from "fs"
 import { JSDOM } from "jsdom"
-import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
+import { convertFormElementsToPlainKeyValueObject } from "ducs-lib/dist/utils/dom"
 import { resolve } from "url"
-import { PromiseType } from "../utils/types"
-import { SyllabusTree } from "../campussquare-syllabus/tree"
-import { parseSyllabusPageHTML } from "../campussquare-syllabus/parse"
+import { PromiseType } from "ducs-lib/dist/utils/types"
+import { SyllabusTree } from "ducs-lib/dist/campussquare-syllabus/tree"
+import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"

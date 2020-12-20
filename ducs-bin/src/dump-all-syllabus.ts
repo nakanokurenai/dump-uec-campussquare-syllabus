@@ -1,12 +1,12 @@
 import { writeFileSync } from "fs"
-import * as signin from "./campussquare/signin"
-import { parseSyllabusPageHTML } from "./campussquare-syllabus/parse"
+import * as signin from "ducs-lib/dist/campussquare/signin"
+import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
 import {
 	fetchSyllabusHTMLByRefer,
 	ReferSyllabus,
 	search,
-} from "./campussquare-syllabus/search"
-import { PromiseGroup } from "./utils/promise-group"
+} from "ducs-lib/dist/campussquare-syllabus/search"
+import { PromiseGroup } from "ducs-lib/dist/utils/promise-group"
 
 const question = (question: string) =>
 	new Promise<string>((res, rej) => {

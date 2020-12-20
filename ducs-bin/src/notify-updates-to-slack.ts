@@ -1,6 +1,6 @@
 import $, { Transformer } from "transform-ts"
-import { parseUpdatedAtLikeDateStringAsJSTDate } from "../campussquare-syllabus/parse"
-import { pick, TREE_SCHEMA } from "../campussquare-syllabus/tree"
+import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquare-syllabus/parse"
+import { pick, TREE_SCHEMA } from "ducs-lib/dist/campussquare-syllabus/tree"
 import fetch from "node-fetch"
 
 const SLACK_WEBHOOK_URI = process.env.SLACK_WEBHOOK_URI!
