@@ -1,15 +1,13 @@
 {
 	"name": "ducs-bin",
 	"version": "0.0.0",
-	"main": "index.js",
 	"license": "MIT",
 	"private": true,
 	"devDependencies": {
 		"ts-node": "^9.0.0"
 	},
 	"scripts": {
-		"prebuild": "yarn --cwd ../ducs-lib build",
-		"build": "yarn prebuild && build",
-		"ts-node": "yarn prebuild && ts-node"
+		"vendor": "yarn --cwd ../ducs-lib build",
+		"ts-node": "yarn vendor && ts-node"
 	}
 }

@@ -90,7 +90,7 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 				return [info, init]
 			},
 			(info, init = {}) => {
-				return [info, { ...init, agent: proxyAgent }]
+				return [info, { ...init }]
 			},
 		]),
 		applyResponseMiddlewares([

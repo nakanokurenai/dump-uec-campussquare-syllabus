@@ -1,6 +1,8 @@
 {
 	"name": "dump-uec-campussquare-syllabus",
 	"private": true,
+	"author": "otofune <otofune@otofune.me>",
+	"license": "MIT",
 	"workspaces": [
 		"ducs-lib",
 		"ducs-ical-server",
