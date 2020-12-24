@@ -72,8 +72,16 @@ const arrayFromAsyncIterator = async <T>(
 	return r
 }
 
-const useCache = async <T>(name: string, f: () => T): Promise<T> => {
-	const filename = `./cache-${name}.json`
+const validMarkerCurrentMonth = () => {
+	const now = new Date()
+	return `${now.getFullYear()}_${now.getMonth() + 1}`
+}
+const useCache = async <T>(
+	name: string,
+	f: () => T,
+	validMarker: () => string = validMarkerCurrentMonth
+): Promise<T> => {
+	const filename = `./cache-${validMarker()}-${name}.json`
 	try {
 		const json = await fs.promises.readFile(filename, { encoding: "utf-8" })
 		return JSON.parse(json) as any
