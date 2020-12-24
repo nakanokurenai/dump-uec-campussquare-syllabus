@@ -92,7 +92,15 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 				return [info, init]
 			},
 			(info, init = {}) => {
-				return [info, { ...init, agent: proxyAgent }]
+				return [
+					info,
+					{
+						...init,
+						// FIXME: ProxyAgent は指定がないときに環境変数から値を取得するが、どうも環境変数になにもセットされていなかったときにエラーでコケる
+						// そんな挙動がなくなればいいが、本当はProxyAgent が正しく初期化されていないときに限って undefined を渡すようにしたい
+						agent: process.env.ALL_PROXY ? proxyAgent : undefined,
+					},
+				]
 			},
 		]),
 		applyResponseMiddlewares([
