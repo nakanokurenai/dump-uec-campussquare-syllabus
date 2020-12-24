@@ -80,6 +80,7 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 			},
 			(info, init = {}) => {
 				console.log(`-> ${info.toString()}`)
+				/*
 				const headers = Array.from(
 					Object.entries(init.headers || {})
 				).reduce(
@@ -87,6 +88,7 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 					""
 				)
 				console.log(`   headers: [${headers}]`)
+				*/
 				return [info, init]
 			},
 			(info, init = {}) => {

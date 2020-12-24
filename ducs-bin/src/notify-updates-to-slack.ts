@@ -2,6 +2,7 @@ import $, { Transformer } from "transform-ts"
 import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquare-syllabus/parse"
 import { pick, TREE_SCHEMA } from "ducs-lib/dist/campussquare-syllabus/tree"
 import fetch from "node-fetch"
+import { promises as fs } from "fs"
 
 const SLACK_WEBHOOK_URI = process.env.SLACK_WEBHOOK_URI!
 
@@ -20,10 +21,11 @@ const SYLLABUS_SCHEMA = $.array(
 )
 type SyllabusJSON = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
 
-const readSyllabus = (): Promise<SyllabusJSON> =>
-	Promise.resolve(
-		SYLLABUS_SCHEMA.transformOrThrow(require("../../syllabus.json"))
-	)
+const readSyllabus = (filePath: string): Promise<SyllabusJSON> =>
+	fs
+		.readFile(filePath)
+		.then((r) => JSON.parse(r.toString("utf-8")))
+		.then((j) => SYLLABUS_SCHEMA.transformOrThrow(j))
 
 const UPDATED_AT_PATH = {
 	titlePath: [
@@ -103,10 +105,14 @@ const postToSlack = async (allBlocks: ReturnType<typeof toBlock>[]) => {
 const inRange = (target: Date, from: Date, to: Date) =>
 	from.getTime() <= target.getTime() && target.getTime() <= to.getTime()
 
-const main = async (fromDate: Date, endDate: Date) => {
+const main = async (
+	fromDate: Date,
+	endDate: Date,
+	syllabusFile: string = "./syllabus.json"
+) => {
 	console.log(fromDate)
 	console.log(endDate)
-	const sj = await readSyllabus()
+	const sj = await readSyllabus(syllabusFile)
 	const blocks: { block: ReturnType<typeof toBlock>; updatedAt: Date }[] = []
 	for (const s of sj) {
 		const updatedAtDateString = pick(s.contentTree, UPDATED_AT_PATH)
@@ -132,7 +138,8 @@ const main = async (fromDate: Date, endDate: Date) => {
 
 main(
 	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[2]),
-	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[3])
+	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[3]),
+	process.argv[4]
 )
 	.then(() => {
 		process.exit(0)
