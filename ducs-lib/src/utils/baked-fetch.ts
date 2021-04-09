@@ -107,12 +107,6 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 			(r) => {
 				console.log(`<- ${r.status} ${r.statusText}`)
 			},
-			async (r, [, init]) => {
-				if (r.ok) return
-				if (init && init.body) {
-					console.error(init.body)
-				}
-			},
 			(r, [, init]) => {
 				if (!init || init.credentials != "includes") return
 				if (!r.headers.has("set-cookie")) return
