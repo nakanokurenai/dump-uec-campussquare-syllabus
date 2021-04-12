@@ -25,7 +25,7 @@ const { CLIENT_ID, CLIENT_SECRET } = loadEnv()
 // fs ni suru
 const readSyllabus = (): Promise<SyllabusJSON> =>
 	Promise.resolve(
-		SYLLABUS_SCHEMA.transformOrThrow(require("../../syllabus.json"))
+		SYLLABUS_SCHEMA.transformOrThrow(require("../syllabus.json"))
 	)
 
 const question = (question: string) =>
@@ -82,9 +82,20 @@ const SCHEDULE = {
 			end: [2021, 2, 18],
 		},
 	},
+	"2021": {
+		前学期: {
+			start: [2021, 4, 8],
+			end: [2021, 8, 26]
+		},
+		後学期: {
+			// FIXME
+			start: [2021, 4, 8],
+			end: [2021, 8, 26]
+		}
+	}
 } as const
 
-const calcReccurence = (y: "2020", g: "前学期" | "後学期") => {
+const calcReccurence = (y: "2020" | "2021", g: "前学期" | "後学期") => {
 	// ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
 	// 終了日の 23:59:59 にする
 	const recEveryWeekToYMD = (y: number, m: number, d: number) =>
@@ -231,7 +242,7 @@ const main = async () => {
 				科目番号,
 				calendar: calculateCalendarFromJigen(
 					jigen,
-					calcReccurence("2020", s.digest.学期)
+					calcReccurence("2021", s.digest.学期)
 				),
 				description: convertSyllabusTreeToMarkdown(
 					s.contentTree as any
