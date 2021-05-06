@@ -15,7 +15,7 @@
 		"jsdom": "^16.2.2",
 		"node-fetch": "^2.6.1",
 		"proxy-agent": "^4.0.0",
-		"sanitize-html": "^1.23.0",
+		"sanitize-html": "^2.3.2",
 		"tough-cookie": "^4.0.0",
 		"transform-ts": "^0.3.0"
 	},
