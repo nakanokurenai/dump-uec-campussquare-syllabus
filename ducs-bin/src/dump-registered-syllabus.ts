@@ -10,9 +10,7 @@ import * as fs from "fs"
 import { JSDOM } from "jsdom"
 import { convertFormElementsToPlainKeyValueObject } from "ducs-lib/dist/utils/dom"
 import { resolve } from "url"
-import { PromiseType } from "ducs-lib/dist/utils/types"
-import { SyllabusTree } from "ducs-lib/dist/campussquare-syllabus/tree"
-import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
+import { saveReferAndSyllabusPage } from "./internal"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"
@@ -173,13 +171,6 @@ const main = async () => {
 
 	const registeredCources = await fetchRegisteredCources(session, menu)
 
-	const syllabusPages: {
-		digest: PromiseType<
-			ReturnType<typeof fetchRegisteredCources>
-		>[number]["refer"]["digest"]
-		contentTree: SyllabusTree | null
-		syllabusHTML: string
-	}[] = []
 	for (const cource of registeredCources) {
 		const syllabusSearchPage = await fetchFlowByMenu(
 			session,
@@ -218,36 +209,8 @@ const main = async () => {
 		)
 		const syllabusHTML = await syllabusPage.text()
 
-		const tryOrNull = async <T>(
-			p: () => Promise<T> | T
-		): Promise<T | null> => {
-			try {
-				return p()
-			} catch (e) {
-				console.error(e)
-				return null
-			}
-		}
-
-		// index.ts とフォーマットを合わせる
-		syllabusPages.push({
-			digest: cource.refer.digest,
-			contentTree: await tryOrNull(() =>
-				parseSyllabusPageHTML(syllabusHTML)
-			),
-			syllabusHTML,
-		})
-		await fs.promises.writeFile(
-			"./risyuu-syllabuses.json",
-			JSON.stringify(syllabusPages, null, 2),
-			{ encoding: "utf-8" }
-		)
+		await saveReferAndSyllabusPage("./dump", cource.refer, syllabusHTML)
 	}
-	await fs.promises.writeFile(
-		"./risyuu-syllabuses.json",
-		JSON.stringify(syllabusPages, null, 2),
-		{ encoding: "utf-8" }
-	)
 }
 
 main()

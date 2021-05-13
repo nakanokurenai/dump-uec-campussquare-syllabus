@@ -79,19 +79,6 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 				})(info, init)
 			},
 			(info, init = {}) => {
-				console.log(`-> ${info.toString()}`)
-				/*
-				const headers = Array.from(
-					Object.entries(init.headers || {})
-				).reduce(
-					(s, [k, v]) => s + (s.length ? `, ` : "") + `${k}=${v}`,
-					""
-				)
-				console.log(`   headers: [${headers}]`)
-				*/
-				return [info, init]
-			},
-			(info, init = {}) => {
 				return [
 					info,
 					{
@@ -105,7 +92,7 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 		]),
 		applyResponseMiddlewares([
 			(r) => {
-				console.log(`<- ${r.status} ${r.statusText}`)
+				console.log(`<- ${r.status} ${r.url}`)
 			},
 			(r, [, init]) => {
 				if (!init || init.credentials != "includes") return
@@ -136,4 +123,26 @@ export const bakedFetch = (jar: toughCookie.CookieJar): Fetch =>
 			}
 			return resp
 		},
+		// retry
+		(fetch) => (info, init = {}) =>
+			(async () => {
+				for (let i = 0; i < 5; i++) {
+					try {
+						// body が stream ではないことを暗に期待。再度使えると思い込む
+						const resp = await fetch(info, init)
+						return resp
+					} catch (e) {
+						if (e.type === "system") {
+							// Node.js 側のエラーであればリトライする
+							console.error(
+								`! network error occurred when fetching ${info}, retry after 0.5s: ${e}`
+							)
+							await new Promise((r) => setTimeout(r, 500))
+							continue
+						}
+						throw e
+					}
+				}
+				throw new Error(`${info} does not respond after 5 times retry`)
+			})(),
 	])(fetch)
