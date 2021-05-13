@@ -9,5 +9,6 @@
 	"scripts": {
 		"vendor": "yarn --cwd ../ducs-lib build",
 		"ts-node": "yarn vendor && ts-node"
-	}
+	},
+	"dependencies": {}
 }

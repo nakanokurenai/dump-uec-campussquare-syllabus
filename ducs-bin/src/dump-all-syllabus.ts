@@ -1,12 +1,10 @@
-import { writeFileSync } from "fs"
 import * as signin from "ducs-lib/dist/campussquare/signin"
-import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
 import {
 	fetchSyllabusHTMLByRefer,
-	ReferSyllabus,
 	search,
 } from "ducs-lib/dist/campussquare-syllabus/search"
 import { PromiseGroup } from "ducs-lib/dist/utils/promise-group"
+import { saveReferAndSyllabusPage } from "./internal"
 
 const question = (question: string) =>
 	new Promise<string>((res, rej) => {
@@ -63,59 +61,22 @@ async function main() {
 		await signin.exportSession(session)
 	}
 
-	const g = new PromiseGroup<{ refer: ReferSyllabus; syllabusHTML: string }>(
-		5
-	)
+	const g = new PromiseGroup<void>(5)
 	for await (const refer of search(session, {
 		nenji: "指示なし",
 		// デフォルト値はアカウントの所属
 		jikanwariShozokuCode: "指示なし",
 		gakkiKubunCode: "指示なし",
 	})) {
-		g.enqueue(() =>
-			fetchSyllabusHTMLByRefer(session, refer).then((syllabusHTML) => ({
-				syllabusHTML,
-				refer,
-			}))
-		)
+		g.enqueue(async () => {
+			try {
+				const page = await fetchSyllabusHTMLByRefer(session, refer)
+				await saveReferAndSyllabusPage("./dump", refer, page)
+			} catch (e) {}
+		})
 		await g.acquire()
-		// 途中経過の保存
-		const pages = await g.allFulfilled()
-		writeFileSync("./syllabus_temp.json", JSON.stringify(pages, null, 2), {
-			encoding: "utf8",
-		})
 	}
-	const syllabusPages = await g.all()
-	// 経過の保存
-	writeFileSync(
-		"./syllabus_temp.json",
-		JSON.stringify(syllabusPages, null, 2),
-		{ encoding: "utf8" }
-	)
-
-	/* export it */
-	const exp = await Promise.all(
-		syllabusPages.map(async ({ refer, syllabusHTML }, i) => {
-			return {
-				digest: refer.digest,
-				contentTree: await (() => {
-					try {
-						console.log(
-							`Parsing ${i + 1} / ${syllabusPages.length} …`
-						)
-						return parseSyllabusPageHTML(syllabusHTML)
-					} catch (e) {
-						console.error(e)
-						return null
-					}
-				})(),
-				contentHTML: syllabusHTML,
-			}
-		})
-	)
-	writeFileSync("./syllabus.json", JSON.stringify(exp, null, 2), {
-		encoding: "utf8",
-	})
+	await g.all()
 }
 
 main()
