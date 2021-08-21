@@ -91,17 +91,21 @@ export const readAllDumpedSyllabus = async function* (
 			files.includes(HTML_FILE_NAME) &&
 			files.includes(DIGEST_FILE_NAME)
 		if (!ok) throw new Error(`not dump directory: ${src}/${cd}`)
-		yield {
-			digest: DIGEST_SCHEMA.transformOrThrow(
-				JSON.parse(
-					await fs.readFile(path.join(cdp, DIGEST_FILE_NAME), {
-						encoding: "utf8",
-					})
-				)
-			),
-			html: await fs.readFile(path.join(cdp, HTML_FILE_NAME), {
-				encoding: "utf-8",
-			}),
+		try {
+			yield {
+				digest: DIGEST_SCHEMA.transformOrThrow(
+					JSON.parse(
+						await fs.readFile(path.join(cdp, DIGEST_FILE_NAME), {
+							encoding: "utf8",
+						})
+					)
+				),
+				html: await fs.readFile(path.join(cdp, HTML_FILE_NAME), {
+					encoding: "utf-8",
+				}),
+			}
+		} catch (e) {
+			throw new Error(`failed to read ${cd}: ${e}`)
 		}
 	}
 }
@@ -167,7 +171,8 @@ export const useCache = async <T>(
 		return JSON.parse(json) as any
 	} catch (e) {
 		if (e.code !== "ENOENT") {
-			throw e
+			// キャッシュミスとして扱う
+			console.error(`cache file is invalid (${filename}): ${e}`)
 		}
 	}
 
