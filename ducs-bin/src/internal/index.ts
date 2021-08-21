@@ -131,16 +131,16 @@ export const readAndParseDumpedSyllabus = async (
 			.createHash("sha256")
 			.update(maskFlowExecutionKeyLine(html), "utf8")
 			.digest("hex")
-		const data = await useCache(
-			rest.digest.時間割コード,
-			() => ({
-				...rest,
-				html,
-				contentTree: parseSyllabusPageHTML(html),
-			}),
+		const contentTree = await useCache(
+			`rapds_v2_${rest.digest.時間割コード}`,
+			() => parseSyllabusPageHTML(html),
 			() => hash
 		)
-		a[a.length] = data
+		a[a.length] = {
+			...rest,
+			html,
+			contentTree,
+		}
 		if (parseProgress) parseProgress(i++, src.length)
 	}
 	return a
