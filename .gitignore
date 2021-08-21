@@ -7,5 +7,5 @@ node_modules
 *-error.log
 dist
 *.sh
-dump
+dump*
 .env*

@@ -4,7 +4,7 @@ import {
 	search,
 } from "ducs-lib/dist/campussquare-syllabus/search"
 import { PromiseGroup } from "ducs-lib/dist/utils/promise-group"
-import { saveReferAndSyllabusPage } from "./internal"
+import { DEFAULT_DUMP_DIRECTORY, saveReferAndSyllabusPage } from "./internal"
 
 const question = (question: string) =>
 	new Promise<string>((res, rej) => {
@@ -41,7 +41,7 @@ const loadEnv = () => {
 	return env as { [K in keyof typeof env]: string }
 }
 
-async function main() {
+async function main(dumpDir: string) {
 	const env = loadEnv()
 	const session = signin.createSession()
 
@@ -70,14 +70,14 @@ async function main() {
 	})) {
 		g.enqueue(async () => {
 			const page = await fetchSyllabusHTMLByRefer(session, refer)
-			await saveReferAndSyllabusPage("./dump", refer, page)
+			await saveReferAndSyllabusPage(dumpDir, refer, page)
 		})
 		await g.acquire()
 	}
 	await g.all()
 }
 
-main()
+main(process.argv[2] || DEFAULT_DUMP_DIRECTORY)
 	.then(() => {
 		process.exit(0)
 	})

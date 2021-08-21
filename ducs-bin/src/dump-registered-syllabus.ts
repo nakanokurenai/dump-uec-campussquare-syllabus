@@ -10,7 +10,7 @@ import * as fs from "fs"
 import { JSDOM } from "jsdom"
 import { convertFormElementsToPlainKeyValueObject } from "ducs-lib/dist/utils/dom"
 import { resolve } from "url"
-import { saveReferAndSyllabusPage } from "./internal"
+import { saveReferAndSyllabusPage, arrayFromAsyncIterator, DEFAULT_DUMP_DIRECTORY } from "./internal"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"
@@ -59,15 +59,6 @@ const fetchAllDigest = async function* (session: Fetch) {
 	})) {
 		yield digest
 	}
-}
-const arrayFromAsyncIterator = async <T>(
-	i: AsyncGenerator<T, void, unknown>
-): Promise<T[]> => {
-	const r: T[] = []
-	for await (const c of i) {
-		r.push(c)
-	}
-	return r
 }
 
 const validMarkerCurrentMonth = () => {
@@ -147,7 +138,7 @@ const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
 	})
 }
 
-const main = async () => {
+const main = async (dumpDir: string) => {
 	const env = loadEnv()
 	const session = signin.createSession()
 
@@ -209,11 +200,11 @@ const main = async () => {
 		)
 		const syllabusHTML = await syllabusPage.text()
 
-		await saveReferAndSyllabusPage("./dump", cource.refer, syllabusHTML)
+		await saveReferAndSyllabusPage(dumpDir, cource.refer, syllabusHTML)
 	}
 }
 
-main()
+main(process.argv[2] || DEFAULT_DUMP_DIRECTORY)
 	.then(() => {
 		process.exit(0)
 	})

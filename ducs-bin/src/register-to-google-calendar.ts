@@ -1,10 +1,13 @@
-import $, { Transformer } from "transform-ts"
 import {
 	convertSyllabusTreeToMarkdown,
 	pick,
-	TREE_SCHEMA,
 } from "ducs-lib/dist/campussquare-syllabus/tree"
 import * as googleapis from "googleapis"
+import {
+	DEFAULT_DUMP_DIRECTORY,
+	readAndParseDumpedSyllabus,
+	schoolYear,
+} from "./internal"
 
 // env
 const loadEnv = () => {
@@ -21,12 +24,6 @@ const loadEnv = () => {
 	}, {} as Env)
 }
 const { CLIENT_ID, CLIENT_SECRET } = loadEnv()
-
-// fs ni suru
-const readSyllabus = (): Promise<SyllabusJSON> =>
-	Promise.resolve(
-		SYLLABUS_SCHEMA.transformOrThrow(require("../../syllabus.json"))
-	)
 
 const question = (question: string) =>
 	new Promise<string>((res, rej) => {
@@ -55,20 +52,6 @@ const CODE_PATH = [
 	["講義概要/Course Information", "科目基礎情報/General Information"],
 	"科目番号/Code",
 ] as [[string, string], string]
-const SYLLABUS_SCHEMA = $.array(
-	$.obj({
-		digest: $.obj({
-			学期: $.literal("前学期", "後学期"),
-			開講: $.literal("前学期", "後学期"),
-			// TODO: 本当は $.array($.string) にしたい
-			"曜日・時限": $.string,
-			時間割コード: $.string,
-			科目: $.string,
-		}),
-		contentTree: TREE_SCHEMA,
-	})
-)
-type SyllabusJSON = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
 
 // どこかに知識を移譲したい。また、長期休みを考慮していない
 const SCHEDULE = {
@@ -182,7 +165,10 @@ const calculateCalendarFromJigen = (j: string[], reccurence: string): Cal => {
 	}
 }
 
-const main = async () => {
+const isKnownYear = (s: string): s is keyof typeof SCHEDULE =>
+	Object.keys(SCHEDULE).includes(s)
+
+const main = async (dumpDir: string) => {
 	const oauth2Client = new googleapis.google.auth.OAuth2(
 		CLIENT_ID,
 		CLIENT_SECRET,
@@ -213,7 +199,10 @@ const main = async () => {
 	if (!calendarId) throw new Error("ないんだけど？")
 	console.log(calendarId)
 
-	const syllabuses = await readSyllabus()
+	const year = schoolYear().toString()
+	if (!isKnownYear(year))
+		throw new Error(`${year}年の スケジュールが登録されていません`)
+	const syllabuses = await readAndParseDumpedSyllabus(dumpDir, year)
 	const season = syllabuses[0].digest.学期
 	const courses = syllabuses
 		.map((s) => {
@@ -240,7 +229,7 @@ const main = async () => {
 		})
 		.filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
 
-	const startDay = SCHEDULE["2020"][season].start
+	const startDay = SCHEDULE[year][season].start
 	const firstBaseDay = new Date(
 		`${startDay[0]}-${startDay[1]
 			.toString()
@@ -309,7 +298,7 @@ const main = async () => {
 	console.log(JSON.stringify(persisted, null, 2))
 }
 
-main()
+main(DEFAULT_DUMP_DIRECTORY)
 	.then(() => {
 		process.exit(0)
 	})
