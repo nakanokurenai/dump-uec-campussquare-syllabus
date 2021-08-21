@@ -126,22 +126,21 @@ export const readAndParseDumpedSyllabus = async (
 	const src = await arrayFromAsyncIterator(readAllDumpedSyllabus(dir, year))
 	let i = 0
 	const a: ParsedSyllabuses = []
-	for (const { html, ...rest } of src) {
-		const hash = crypto
-			.createHash("sha256")
-			.update(maskFlowExecutionKeyLine(html), "utf8")
-			.digest("hex")
+	for (const s of src) {
 		const contentTree = await useCache(
-			`rapds_v2_${rest.digest.時間割コード}`,
-			() => parseSyllabusPageHTML(html),
-			() => hash
+			`rapds_v2_${s.digest.時間割コード}`,
+			() => parseSyllabusPageHTML(s.html),
+			() =>
+				crypto
+					.createHash("sha256")
+					.update(maskFlowExecutionKeyLine(s.html), "utf8")
+					.digest("hex")
 		)
 		a[a.length] = {
-			...rest,
-			html,
+			...s,
 			contentTree,
 		}
-		if (parseProgress) parseProgress(i++, src.length)
+		if (parseProgress) parseProgress(++i, src.length)
 	}
 	return a
 }
