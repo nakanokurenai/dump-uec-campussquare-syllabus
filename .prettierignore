@@ -1,2 +1,4 @@
 syllabus_*.json
 */dist
+dump*
+ducs-bin/**/*.json

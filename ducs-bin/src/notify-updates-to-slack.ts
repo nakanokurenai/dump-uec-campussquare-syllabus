@@ -1,31 +1,16 @@
-import $, { Transformer } from "transform-ts"
 import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquare-syllabus/parse"
-import { pick, TREE_SCHEMA } from "ducs-lib/dist/campussquare-syllabus/tree"
+import { pick } from "ducs-lib/dist/campussquare-syllabus/tree"
 import fetch from "node-fetch"
-import { promises as fs } from "fs"
+import {
+	DEFAULT_DUMP_DIRECTORY,
+	isInvalidDate,
+	ParsedSyllabuses,
+	parsingProgressBar,
+	readAndParseDumpedSyllabus,
+	schoolYear,
+} from "./internal"
 
 const SLACK_WEBHOOK_URI = process.env.SLACK_WEBHOOK_URI!
-
-const SYLLABUS_SCHEMA = $.array(
-	$.obj({
-		digest: $.obj({
-			学期: $.literal("前学期", "後学期"),
-			開講: $.literal("前学期", "後学期", "通年"),
-			// TODO: 本当は $.array($.string) にしたい
-			"曜日・時限": $.string,
-			時間割コード: $.string,
-			科目: $.string,
-		}),
-		contentTree: TREE_SCHEMA,
-	})
-)
-type SyllabusJSON = Transformer.TypeOf<typeof SYLLABUS_SCHEMA>
-
-const readSyllabus = (filePath: string): Promise<SyllabusJSON> =>
-	fs
-		.readFile(filePath)
-		.then((r) => JSON.parse(r.toString("utf-8")))
-		.then((j) => SYLLABUS_SCHEMA.transformOrThrow(j))
 
 const UPDATED_AT_PATH = {
 	titlePath: [
@@ -35,7 +20,7 @@ const UPDATED_AT_PATH = {
 	contentKey: "更新日/Last updated",
 }
 
-const toBlock = (s: SyllabusJSON[0], updatedAt: Date) => {
+const toBlock = (s: ParsedSyllabuses[0], updatedAt: Date) => {
 	const facility = pick(s.contentTree, {
 		titlePath: [
 			"講義概要/Course Information",
@@ -105,16 +90,19 @@ const postToSlack = async (allBlocks: ReturnType<typeof toBlock>[]) => {
 const inRange = (target: Date, from: Date, to: Date) =>
 	from.getTime() <= target.getTime() && target.getTime() <= to.getTime()
 
-const main = async (
-	fromDate: Date,
-	endDate: Date,
-	syllabusFile: string = "./syllabus.json"
-) => {
+const main = async (fromDate: Date, endDate: Date, dumpDir: string) => {
+	if (isInvalidDate(fromDate) || isInvalidDate(endDate)) {
+		throw new Error(`開始日 (${fromDate}) か終了日 (${endDate}) が異常です`)
+	}
 	console.log(fromDate)
 	console.log(endDate)
-	const sj = await readSyllabus(syllabusFile)
+
 	const blocks: { block: ReturnType<typeof toBlock>; updatedAt: Date }[] = []
-	for (const s of sj) {
+	for (const s of await readAndParseDumpedSyllabus(
+		dumpDir,
+		schoolYear().toString(),
+		parsingProgressBar()
+	)) {
 		const updatedAtDateString = pick(s.contentTree, UPDATED_AT_PATH)
 		if (!updatedAtDateString) throw new Error("NG")
 		const updatedAt = parseUpdatedAtLikeDateStringAsJSTDate(
@@ -139,7 +127,7 @@ const main = async (
 main(
 	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[2]),
 	parseUpdatedAtLikeDateStringAsJSTDate(process.argv[3]),
-	process.argv[4]
+	process.argv[4] || DEFAULT_DUMP_DIRECTORY
 )
 	.then(() => {
 		process.exit(0)

@@ -1,6 +1,13 @@
 import { pick } from "ducs-lib/dist/campussquare-syllabus/tree"
 import { parse, differenceInCalendarDays } from "date-fns"
 import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquare-syllabus/parse"
+import {
+	DEFAULT_DUMP_DIRECTORY,
+	isInvalidDate,
+	parsingProgressBar,
+	readAndParseDumpedSyllabus,
+	schoolYear,
+} from "./internal"
 
 const UPDATED_AT_PATH = {
 	titlePath: [
@@ -10,22 +17,26 @@ const UPDATED_AT_PATH = {
 	contentKey: "更新日/Last updated",
 }
 
-const read = () => require("../../syllabus.json")
-
-const main = async (from: Date) => {
+const main = async (from: Date, dumpDir: string) => {
+	if (isInvalidDate(from)) throw new Error("日付を入力してください")
 	console.log(from.toLocaleString("ja-JP"))
-	const syllabus: any[] = read()
-	syllabus.forEach((s) => {
-		const ds = pick(s["contentTree"], UPDATED_AT_PATH)
+
+	for (const { digest, contentTree } of await readAndParseDumpedSyllabus(
+		dumpDir,
+		schoolYear().toString(),
+		parsingProgressBar()
+	)) {
+		const ds = pick(contentTree, UPDATED_AT_PATH)
 		if (!ds) throw new Error()
 		const d = parseUpdatedAtLikeDateStringAsJSTDate(ds)
 		const differ = differenceInCalendarDays(d, from)
 		if (differ >= 0) {
-			console.log(`${s["科目"]}: ${d.toLocaleString("ja-JP")}`)
+			console.log(`${digest["科目"]}: ${d.toLocaleString("ja-JP")}`)
 		}
-	})
+	}
 }
 
-main(parse(process.argv[2] + " +0900", "yyyy/MM/dd xx", new Date(0))).catch(
-	console.error
-)
+main(
+	parse(process.argv[2] + " +0900", "yyyy/MM/dd xx", new Date(0)),
+	process.argv[3] || DEFAULT_DUMP_DIRECTORY
+).catch(console.error)

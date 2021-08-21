@@ -6,13 +6,10 @@ import {
 } from "ducs-lib/dist/campussquare/menu"
 import * as signin from "ducs-lib/dist/campussquare/signin"
 import { Fetch } from "ducs-lib/dist/utils/baked-fetch"
-import * as fs from "fs"
 import { JSDOM } from "jsdom"
 import { convertFormElementsToPlainKeyValueObject } from "ducs-lib/dist/utils/dom"
 import { resolve } from "url"
-import { PromiseType } from "ducs-lib/dist/utils/types"
-import { SyllabusTree } from "ducs-lib/dist/campussquare-syllabus/tree"
-import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
+import { saveReferAndSyllabusPage, arrayFromAsyncIterator, DEFAULT_DUMP_DIRECTORY, useCache } from "./internal"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"
@@ -61,41 +58,6 @@ const fetchAllDigest = async function* (session: Fetch) {
 	})) {
 		yield digest
 	}
-}
-const arrayFromAsyncIterator = async <T>(
-	i: AsyncGenerator<T, void, unknown>
-): Promise<T[]> => {
-	const r: T[] = []
-	for await (const c of i) {
-		r.push(c)
-	}
-	return r
-}
-
-const validMarkerCurrentMonth = () => {
-	const now = new Date()
-	return `${now.getFullYear()}_${now.getMonth() + 1}`
-}
-const useCache = async <T>(
-	name: string,
-	f: () => T,
-	validMarker: () => string = validMarkerCurrentMonth
-): Promise<T> => {
-	const filename = `./cache-${validMarker()}-${name}.json`
-	try {
-		const json = await fs.promises.readFile(filename, { encoding: "utf-8" })
-		return JSON.parse(json) as any
-	} catch (e) {
-		if (e.code !== "ENOENT") {
-			throw e
-		}
-	}
-
-	const res = await f()
-	await fs.promises.writeFile(filename, JSON.stringify(res), {
-		encoding: "utf-8",
-	})
-	return res
 }
 
 const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
@@ -149,7 +111,7 @@ const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {
 	})
 }
 
-const main = async () => {
+const main = async (dumpDir: string) => {
 	const env = loadEnv()
 	const session = signin.createSession()
 
@@ -173,13 +135,6 @@ const main = async () => {
 
 	const registeredCources = await fetchRegisteredCources(session, menu)
 
-	const syllabusPages: {
-		digest: PromiseType<
-			ReturnType<typeof fetchRegisteredCources>
-		>[number]["refer"]["digest"]
-		contentTree: SyllabusTree | null
-		syllabusHTML: string
-	}[] = []
 	for (const cource of registeredCources) {
 		const syllabusSearchPage = await fetchFlowByMenu(
 			session,
@@ -218,39 +173,11 @@ const main = async () => {
 		)
 		const syllabusHTML = await syllabusPage.text()
 
-		const tryOrNull = async <T>(
-			p: () => Promise<T> | T
-		): Promise<T | null> => {
-			try {
-				return p()
-			} catch (e) {
-				console.error(e)
-				return null
-			}
-		}
-
-		// index.ts とフォーマットを合わせる
-		syllabusPages.push({
-			digest: cource.refer.digest,
-			contentTree: await tryOrNull(() =>
-				parseSyllabusPageHTML(syllabusHTML)
-			),
-			syllabusHTML,
-		})
-		await fs.promises.writeFile(
-			"./risyuu-syllabuses.json",
-			JSON.stringify(syllabusPages, null, 2),
-			{ encoding: "utf-8" }
-		)
+		await saveReferAndSyllabusPage(dumpDir, cource.refer, syllabusHTML)
 	}
-	await fs.promises.writeFile(
-		"./risyuu-syllabuses.json",
-		JSON.stringify(syllabusPages, null, 2),
-		{ encoding: "utf-8" }
-	)
 }
 
-main()
+main(process.argv[2] || DEFAULT_DUMP_DIRECTORY)
 	.then(() => {
 		process.exit(0)
 	})

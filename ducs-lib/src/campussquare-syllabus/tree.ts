@@ -1,6 +1,3 @@
-import $ from "transform-ts"
-import { record as $record } from "../transform-ts/record"
-
 export type SyllabusTree = {
 	title: string
 	content?: { [key: string]: string }
@@ -70,13 +67,3 @@ export const pick = (
 		)
 	return c.content[contentKey]
 }
-
-export const TREE_SCHEMA = $.obj<SyllabusTree>({
-	title: $.string,
-	children: $.array(
-		$.obj({
-			title: $.string,
-			content: $record($.string, $.string),
-		})
-	),
-})
