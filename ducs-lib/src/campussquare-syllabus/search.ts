@@ -4,6 +4,7 @@ import { convertFormElementsToPlainKeyValueObject } from "../utils/dom"
 import type { Fetch } from "../utils/baked-fetch"
 
 import { fetchFlowByMenu, fetchMenu, Menu } from "../campussquare/menu"
+import { isErrorHTML } from "../campussquare/error"
 
 // "時間割コードが不明な場合" の検索フォームの Select の name とその Option の表示文字列のペアで検索できます
 // 空白は trim されます
@@ -285,12 +286,17 @@ export const fetchSyllabusHTMLByRefer = async (
 	refer: ReferSyllabus
 ) => {
 	const form = { ...refer.initForm(), ...refer.options }
-	return session(refer.url, {
+	const resp = await session(refer.url, {
 		method: refer.method,
 		body: new URLSearchParams(form).toString(),
 		headers: {
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 		credentials: "includes",
-	}).then((r) => r.text())
+	})
+	const html = await resp.text()
+	if (await isErrorHTML(html)) {
+		throw new Error("エラーページが表示されています: " + html)
+	}
+	return html
 }

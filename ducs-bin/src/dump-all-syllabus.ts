@@ -69,10 +69,8 @@ async function main() {
 		gakkiKubunCode: "指示なし",
 	})) {
 		g.enqueue(async () => {
-			try {
-				const page = await fetchSyllabusHTMLByRefer(session, refer)
-				await saveReferAndSyllabusPage("./dump", refer, page)
-			} catch (e) {}
+			const page = await fetchSyllabusHTMLByRefer(session, refer)
+			await saveReferAndSyllabusPage("./dump", refer, page)
 		})
 		await g.acquire()
 	}
