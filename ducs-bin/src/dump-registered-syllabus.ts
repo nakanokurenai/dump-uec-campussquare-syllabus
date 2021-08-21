@@ -6,11 +6,10 @@ import {
 } from "ducs-lib/dist/campussquare/menu"
 import * as signin from "ducs-lib/dist/campussquare/signin"
 import { Fetch } from "ducs-lib/dist/utils/baked-fetch"
-import * as fs from "fs"
 import { JSDOM } from "jsdom"
 import { convertFormElementsToPlainKeyValueObject } from "ducs-lib/dist/utils/dom"
 import { resolve } from "url"
-import { saveReferAndSyllabusPage, arrayFromAsyncIterator, DEFAULT_DUMP_DIRECTORY } from "./internal"
+import { saveReferAndSyllabusPage, arrayFromAsyncIterator, DEFAULT_DUMP_DIRECTORY, useCache } from "./internal"
 
 const COURSE_REGISTRATION_OR_VIEW_CURRENT_REGISTERED_COURCES =
 	"履修登録・登録状況照会"
@@ -59,32 +58,6 @@ const fetchAllDigest = async function* (session: Fetch) {
 	})) {
 		yield digest
 	}
-}
-
-const validMarkerCurrentMonth = () => {
-	const now = new Date()
-	return `${now.getFullYear()}_${now.getMonth() + 1}`
-}
-const useCache = async <T>(
-	name: string,
-	f: () => T,
-	validMarker: () => string = validMarkerCurrentMonth
-): Promise<T> => {
-	const filename = `./cache-${validMarker()}-${name}.json`
-	try {
-		const json = await fs.promises.readFile(filename, { encoding: "utf-8" })
-		return JSON.parse(json) as any
-	} catch (e) {
-		if (e.code !== "ENOENT") {
-			throw e
-		}
-	}
-
-	const res = await f()
-	await fs.promises.writeFile(filename, JSON.stringify(res), {
-		encoding: "utf-8",
-	})
-	return res
 }
 
 const fetchRegisteredCources = async (session: Fetch, menu: Menu) => {

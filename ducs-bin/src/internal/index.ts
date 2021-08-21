@@ -1,5 +1,6 @@
 import { promises as fs } from "fs"
 import * as path from "path"
+import * as crypto from "crypto"
 import $, { Transformer } from "transform-ts"
 import { ReferSyllabus } from "ducs-lib/dist/campussquare-syllabus/search"
 import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
@@ -23,6 +24,25 @@ type AsyncGeneratorOf<T extends AsyncGenerator> = T extends AsyncGenerator<
 
 const HTML_FILE_NAME = "reference.html"
 const DIGEST_FILE_NAME = "digest.json"
+
+// 適当に _flowExecutionKey が含まれる行を無かったことにする
+// 同一データ判定をするため
+const maskFlowExecutionKeyLine = (html: string): string =>
+	html
+		.split("\n")
+		.filter((l) => !l.includes("_flowExecutionKey"))
+		.join("\n")
+
+const ignoreHiddenFile = (name: string) => name.startsWith(".")
+const iterateWithout = function* <T>(
+	source: Iterable<T>,
+	ignore: (item: T) => boolean
+) {
+	for (const i of source) {
+		if (ignore(i)) continue
+		yield i
+	}
+}
 
 export const DEFAULT_DUMP_DIRECTORY = "./dump"
 
@@ -52,17 +72,6 @@ export const saveReferAndSyllabusPage = async (
 		fs.writeFile(path.join(dest, HTML_FILE_NAME), html),
 	])
 }
-
-const iterateWithout = function* <T>(
-	source: Iterable<T>,
-	ignore: (item: T) => boolean
-) {
-	for (const i of source) {
-		if (ignore(i)) continue
-		yield i
-	}
-}
-const ignoreHiddenFile = (name: string) => name.startsWith(".")
 
 export const readAllDumpedSyllabus = async function* (
 	dir: string,
@@ -103,21 +112,31 @@ export type ParsedSyllabuses = Array<
 	}
 >
 // メモリにツリー内容を全展開するショートハンド関数
+// キャッシュも行う
 export const readAndParseDumpedSyllabus = async (
 	dir: string,
 	year: string,
 	parseProgress?: (value: number, max: number) => void
 ): Promise<ParsedSyllabuses> => {
-	const all = await arrayFromAsyncIterator(readAllDumpedSyllabus(dir, year))
+	const src = await arrayFromAsyncIterator(readAllDumpedSyllabus(dir, year))
 	let i = 0
 	const a: ParsedSyllabuses = []
-	for (const { html, ...rest } of all) {
-		a[a.length] = {
-			...rest,
-			html,
-			contentTree: parseSyllabusPageHTML(html),
-		}
-		if (parseProgress) parseProgress(i++, all.length)
+	for (const { html, ...rest } of src) {
+		const hash = crypto
+			.createHash("sha256")
+			.update(maskFlowExecutionKeyLine(html), "utf8")
+			.digest("hex")
+		const data = await useCache(
+			rest.digest.時間割コード,
+			() => ({
+				...rest,
+				html,
+				contentTree: parseSyllabusPageHTML(html),
+			}),
+			() => hash
+		)
+		a[a.length] = data
+		if (parseProgress) parseProgress(i++, src.length)
 	}
 	return a
 }
@@ -130,3 +149,31 @@ export const schoolYear = (d: Date = new Date()) => {
 }
 
 export const isInvalidDate = (d: Date) => isNaN(d.getTime())
+
+export const validMarkerCurrentMonth = () => {
+	const now = new Date()
+	return `${now.getFullYear()}_${now.getMonth() + 1}`
+}
+export const useCache = async <T>(
+	name: string,
+	f: () => T,
+	validMarker: () => string = validMarkerCurrentMonth,
+	cacheStore: string = "./caches"
+): Promise<T> => {
+	await fs.mkdir(cacheStore, { recursive: true })
+	const filename = path.join(cacheStore, `${name}-${validMarker()}.json`)
+	try {
+		const json = await fs.readFile(filename, { encoding: "utf-8" })
+		return JSON.parse(json) as any
+	} catch (e) {
+		if (e.code !== "ENOENT") {
+			throw e
+		}
+	}
+
+	const res = await f()
+	await fs.writeFile(filename, JSON.stringify(res), {
+		encoding: "utf-8",
+	})
+	return res
+}

@@ -16,7 +16,7 @@ const UPDATED_AT_PATH = {
 	contentKey: "更新日/Last updated",
 }
 
-const main = async (from: Date) => {
+const main = async (from: Date, dumpDir: string) => {
 	if (isInvalidDate(from)) throw new Error("日付を入力してください")
 	console.log(from.toLocaleString("ja-JP"))
 
@@ -24,7 +24,7 @@ const main = async (from: Date) => {
 		digest,
 		contentTree,
 	} of await readAndParseDumpedSyllabus(
-		DEFAULT_DUMP_DIRECTORY,
+		dumpDir,
 		schoolYear().toString(),
 		(i, max) => console.log(`Parsing ${i}/${max}…`)
 	)) {
@@ -38,6 +38,7 @@ const main = async (from: Date) => {
 	}
 }
 
-main(parse(process.argv[2] + " +0900", "yyyy/MM/dd xx", new Date(0))).catch(
-	console.error
-)
+main(
+	parse(process.argv[2] + " +0900", "yyyy/MM/dd xx", new Date(0)),
+	process.argv[3] || DEFAULT_DUMP_DIRECTORY
+).catch(console.error)

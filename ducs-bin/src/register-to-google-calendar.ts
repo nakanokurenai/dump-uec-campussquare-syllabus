@@ -65,9 +65,19 @@ const SCHEDULE = {
 			end: [2021, 2, 18],
 		},
 	},
+	"2021": {
+		前学期: {
+			start: [2021, 4, 8],
+			end: [2021, 8, 26],
+		},
+		後学期: {
+			start: [2021, 10, 1],
+			end: [2022, 2, 18],
+		},
+	},
 } as const
 
-const calcReccurence = (y: "2020", g: "前学期" | "後学期") => {
+const calcReccurence = (y: keyof typeof SCHEDULE, g: "前学期" | "後学期") => {
 	// ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
 	// 終了日の 23:59:59 にする
 	const recEveryWeekToYMD = (y: number, m: number, d: number) =>

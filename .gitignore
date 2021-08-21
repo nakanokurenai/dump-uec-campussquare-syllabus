@@ -2,10 +2,14 @@ node_modules
 *.json
 !tsconfig.json
 !package.json
-*.log
+
+dist
 *.js
 *-error.log
-dist
-*.sh
+*.log
+
 dump*
+*cache*
+
+*.sh
 .env*
