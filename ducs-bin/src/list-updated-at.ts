@@ -4,6 +4,7 @@ import { parseUpdatedAtLikeDateStringAsJSTDate } from "ducs-lib/dist/campussquar
 import {
 	DEFAULT_DUMP_DIRECTORY,
 	isInvalidDate,
+	parsingProgressBar,
 	readAndParseDumpedSyllabus,
 	schoolYear,
 } from "./internal"
@@ -20,13 +21,10 @@ const main = async (from: Date, dumpDir: string) => {
 	if (isInvalidDate(from)) throw new Error("日付を入力してください")
 	console.log(from.toLocaleString("ja-JP"))
 
-	for (const {
-		digest,
-		contentTree,
-	} of await readAndParseDumpedSyllabus(
+	for (const { digest, contentTree } of await readAndParseDumpedSyllabus(
 		dumpDir,
 		schoolYear().toString(),
-		(i, max) => console.log(`Parsing ${i}/${max}…`)
+		parsingProgressBar()
 	)) {
 		const ds = pick(contentTree, UPDATED_AT_PATH)
 		if (!ds) throw new Error()

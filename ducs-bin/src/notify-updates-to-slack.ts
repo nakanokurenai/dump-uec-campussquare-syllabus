@@ -5,6 +5,7 @@ import {
 	DEFAULT_DUMP_DIRECTORY,
 	isInvalidDate,
 	ParsedSyllabuses,
+	parsingProgressBar,
 	readAndParseDumpedSyllabus,
 	schoolYear,
 } from "./internal"
@@ -100,7 +101,7 @@ const main = async (fromDate: Date, endDate: Date, dumpDir: string) => {
 	for (const s of await readAndParseDumpedSyllabus(
 		dumpDir,
 		schoolYear().toString(),
-		(i, m) => console.log(`Parsing ${i}/${m}…`)
+		parsingProgressBar()
 	)) {
 		const updatedAtDateString = pick(s.contentTree, UPDATED_AT_PATH)
 		if (!updatedAtDateString) throw new Error("NG")

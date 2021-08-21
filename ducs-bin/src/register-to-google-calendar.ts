@@ -5,6 +5,7 @@ import {
 import * as googleapis from "googleapis"
 import {
 	DEFAULT_DUMP_DIRECTORY,
+	parsingProgressBar,
 	readAndParseDumpedSyllabus,
 	schoolYear,
 } from "./internal"
@@ -212,7 +213,11 @@ const main = async (dumpDir: string) => {
 	const year = schoolYear().toString()
 	if (!isKnownYear(year))
 		throw new Error(`${year}年の スケジュールが登録されていません`)
-	const syllabuses = await readAndParseDumpedSyllabus(dumpDir, year)
+	const syllabuses = await readAndParseDumpedSyllabus(
+		dumpDir,
+		year,
+		parsingProgressBar()
+	)
 	const season = syllabuses[0].digest.学期
 	const courses = syllabuses
 		.map((s) => {

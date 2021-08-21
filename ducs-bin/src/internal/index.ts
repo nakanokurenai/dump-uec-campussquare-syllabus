@@ -1,6 +1,7 @@
 import { promises as fs } from "fs"
 import * as path from "path"
 import * as crypto from "crypto"
+import ProgressBar from "progress"
 import $, { Transformer } from "transform-ts"
 import { ReferSyllabus } from "ducs-lib/dist/campussquare-syllabus/search"
 import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
@@ -144,6 +145,8 @@ export const readAndParseDumpedSyllabus = async (
 	}
 	return a
 }
+export const parsingProgressBar = () =>
+	useProgressBar("Parsing [:bar] :percent :elapseds :current/:total")
 
 export const schoolYear = (d: Date = new Date()) => {
 	let year = d.getFullYear()
@@ -181,4 +184,13 @@ export const useCache = async <T>(
 		encoding: "utf-8",
 	})
 	return res
+}
+
+export const useProgressBar = (bar: string = "[:bar]") => {
+	let pb: ProgressBar
+	return (c: number, m: number) => {
+		if (!pb)
+			pb = new ProgressBar(bar, { total: m, width: 30, incomplete: " " })
+		pb.tick()
+	}
 }
