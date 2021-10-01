@@ -235,7 +235,7 @@ const main = async (dumpDir: string) => {
 				科目番号,
 				calendar: calculateCalendarFromJigen(
 					jigen,
-					calcReccurence("2020", s.digest.学期)
+					calcReccurence(year, s.digest.学期)
 				),
 				description: convertSyllabusTreeToMarkdown(
 					s.contentTree as any
@@ -266,7 +266,7 @@ const main = async (dumpDir: string) => {
 			d.setHours(t.hours)
 			d.setMinutes(t.minutes)
 			const diffDate = dow - d.getDay()
-			d.setDate(d.getDate() + diffDate)
+			d.setDate(d.getDate() + (diffDate < 0 ? +7 : 0) + diffDate)
 			return d
 		}
 		const start = setTime(
@@ -313,7 +313,7 @@ const main = async (dumpDir: string) => {
 	console.log(JSON.stringify(persisted, null, 2))
 }
 
-main(DEFAULT_DUMP_DIRECTORY)
+main(process.argv[2] || DEFAULT_DUMP_DIRECTORY)
 	.then(() => {
 		process.exit(0)
 	})

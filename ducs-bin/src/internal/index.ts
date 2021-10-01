@@ -14,6 +14,7 @@ const DIGEST_SCHEMA = $.obj({
 	時間割コード: $.string,
 	科目: $.string,
 })
+export type Digest = Transformer.TypeOf<typeof DIGEST_SCHEMA>
 
 type AsyncGeneratorOf<T extends AsyncGenerator> = T extends AsyncGenerator<
 	infer I,
@@ -78,7 +79,7 @@ export const readAllDumpedSyllabus = async function* (
 	dir: string,
 	year: string
 ): AsyncGenerator<{
-	digest: Transformer.TypeOf<typeof DIGEST_SCHEMA>
+	digest: Digest
 	html: string
 }> {
 	const src = path.join(dir, year)

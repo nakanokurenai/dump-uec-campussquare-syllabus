@@ -8,10 +8,11 @@
 		"ts-node": "^9.0.0"
 	},
 	"scripts": {
-		"vendor": "yarn --cwd ../ducs-lib build",
-		"ts-node": "yarn vendor && ts-node"
+		"vendor": "yarn -s --cwd ../ducs-lib build",
+		"ts-node": "yarn -s vendor && ts-node"
 	},
 	"dependencies": {
+		"cac": "^6.7.3",
 		"progress": "^2.0.3"
 	}
 }
