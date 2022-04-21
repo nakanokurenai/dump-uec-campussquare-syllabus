@@ -76,6 +76,16 @@ const SCHEDULE = {
 			end: [2022, 2, 18],
 		},
 	},
+	"2022": {
+		前学期: {
+			start: [2022, 4, 8],
+			end: [2022, 8, 13],
+		},
+		後学期: {
+			start: [2022, 10, 1],
+			end: [2023, 2, 18],
+		},
+	}
 } as const
 
 const calcReccurence = (y: keyof typeof SCHEDULE, g: "前学期" | "後学期") => {

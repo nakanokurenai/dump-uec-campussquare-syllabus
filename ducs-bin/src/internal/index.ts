@@ -8,7 +8,7 @@ import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse
 
 const DIGEST_SCHEMA = $.obj({
 	学期: $.literal("前学期", "後学期"),
-	開講: $.literal("前学期", "後学期", "通年"),
+	開講: $.literal("前学期", "後学期", "通年", "前学期集中", "集中", "後学期集中"),
 	// TODO: 本当は $.array($.string) にしたい
 	"曜日・時限": $.string,
 	時間割コード: $.string,
