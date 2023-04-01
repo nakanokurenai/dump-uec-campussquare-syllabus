@@ -150,8 +150,8 @@ export const parsingProgressBar = () =>
 
 export const schoolYear = (d: Date = new Date()) => {
 	let year = d.getFullYear()
-	// 1 ~ 3月ならば前年にする
-	if (d.getMonth() < 3) year--
+	// 1 ~ 2月までは前年にする
+	if (d.getMonth() < 2) year--
 	return year
 }
 
