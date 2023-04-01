@@ -54,7 +54,7 @@ const CODE_PATH = [
 	"科目番号/Code",
 ] as [[string, string], string]
 
-// どこかに知識を移譲したい。また、長期休みを考慮していない
+// どこかに知識を移譲したい。また、期内の長期休みを考慮していない
 const SCHEDULE = {
 	"2020": {
 		前学期: {
@@ -85,31 +85,75 @@ const SCHEDULE = {
 			start: [2022, 10, 1],
 			end: [2023, 2, 18],
 		},
+	},
+	"2023": {
+		春ﾀｰﾑ: {
+			start: [2023, 4, 10],
+			end: [2023, 6, 6],
+		},
+		夏ﾀｰﾑ: {
+			start: [2023, 6, 7],
+			end: [2023, 8, 5],
+		},
+		前学期: {
+			start: [2023, 4, 10],
+			end: [2023, 8, 5],
+		},
+		秋ﾀｰﾑ: {
+			start: [2023, 10, 2],
+			end: [2023, 12, 1],
+		},
+		冬ﾀｰﾑ: {
+			start: [2023, 12, 2],
+			end: [2024, 2, 10],
+		},
+		後学期: {
+			start: [2023, 10, 2],
+			end: [2024, 2, 10],
+		},
 	}
 } as const
 
-const calcReccurence = (y: keyof typeof SCHEDULE, g: "前学期" | "後学期") => {
+type Values<T> = T extends object ? T[keyof T] : T
+
+type SeasonKey = "前学期" | "後学期" | "春ﾀｰﾑ" | "夏ﾀｰﾑ" | "秋ﾀｰﾑ" | "冬ﾀｰﾑ"
+type Season = Values<Values<typeof SCHEDULE>>
+
+const seasonFromYearSeason = (y: keyof typeof SCHEDULE, g: SeasonKey): Season => {
+	switch (g) {
+		case "春ﾀｰﾑ":
+		case "夏ﾀｰﾑ":
+		case "秋ﾀｰﾑ":
+		case "冬ﾀｰﾑ":
+			if (y === "2020" || y === "2021" || y === "2022") {
+				throw new Error("ターム制は2023年度から")
+			}
+			return SCHEDULE[y][g]
+		default:
+			return SCHEDULE[y][g]
+	}
+}
+
+const calcReccurence = (s: Season) => {
 	// ref(Date-Time type): https://tools.ietf.org/html/rfc5545#section-3.3.5
 	// 終了日の 23:59:59 にする
 	const recEveryWeekToYMD = (y: number, m: number, d: number) =>
 		`RRULE:FREQ=DAILY;INTERVAL=7;UNTIL=${y}${m
 			.toString(10)
 			.padStart(2, "0")}${d.toString(10).padStart(2, "0")}T145959Z`
-	const end = SCHEDULE[y][g].end
-	return recEveryWeekToYMD(end[0], end[1], end[2])
+	return recEveryWeekToYMD(s.end[0], s.end[1], s.end[2])
 }
 
 type Time = {
 	hours: number
 	minutes: number
 }
-type Cal = {
-	start: Time
-	end: Time
-	dayOfWeek: number
+type Schedule = {
+	start: Date
+	end: Date
 	reccurence: string
 }
-const calculateCalendarFromJigen = (j: string[], reccurence: string): Cal => {
+const calculateScheduleFromJigen = (jigen: string[], season: Season): Schedule => {
 	// JavaScript の day of week
 	const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"]
 	const fromTimeString = (s: string): Time => {
@@ -149,14 +193,17 @@ const calculateCalendarFromJigen = (j: string[], reccurence: string): Cal => {
 			end: fromTimeString("21:00"),
 		},
 	} as Record<string, { start: Time; end: Time }>
-	const schedule = j
+
+	// 時間のみのデータ
+	const schedule = jigen
 		.map((jikanwari: string) => {
-			// 月7 など
+			// ex: 月7 → 7
 			const s = timeSchedule[jikanwari.slice(1).slice(0, 1)]
 			if (!s)
 				throw new Error(
 					`'${jikanwari}' の時限の時間割が見つかりませんでした`
 				)
+			// ex: 月7 → 月
 			const dow = dayOfWeek.findIndex((v) => v == jikanwari.slice(0, 1))
 			if (dow === -1)
 				throw new Error(`'${jikanwari}' の曜日が見つかりませんでした`)
@@ -180,9 +227,37 @@ const calculateCalendarFromJigen = (j: string[], reccurence: string): Cal => {
 				}
 			}
 		})
+
+	// シーズンから日付にする
+	const setTime = (d: Date, t: Time, dow: number) => {
+		d.setHours(t.hours)
+		d.setMinutes(t.minutes)
+		const diffDate = dow - d.getDay()
+		d.setDate(d.getDate() + (diffDate < 0 ? +7 : 0) + diffDate)
+		return d
+	}
+	const firstBaseDay = new Date(
+		`${season.start[0]}-${season.start[1]
+			.toString()
+			.padStart(2, "0")}-${season.start[2]
+			.toString()
+			.padStart(2, "0")}T00:00:00+09:00`
+	)
+	const start = setTime(
+		new Date(firstBaseDay),
+		schedule.start,
+		schedule.dayOfWeek,
+	)
+	const end = setTime(
+		new Date(firstBaseDay),
+		schedule.end,
+		schedule.dayOfWeek,
+	)
+
 	return {
-		...schedule,
-		reccurence,
+		start,
+		end,
+		reccurence: calcReccurence(season),
 	}
 }
 
@@ -228,7 +303,6 @@ const main = async (dumpDir: string) => {
 		year,
 		parsingProgressBar()
 	)
-	const season = syllabuses[0].digest.学期
 	const courses = syllabuses
 		.map((s) => {
 			// note: スキップされた科目 (R2 K過程 前期 美術) が他になっていた
@@ -239,13 +313,15 @@ const main = async (dumpDir: string) => {
 				titlePath: CODE_PATH[0],
 				contentKey: CODE_PATH[1],
 			})!
+			const season = seasonFromYearSeason(year, s.digest.学期)
+
 			return {
 				...s.digest,
 				"曜日・時限": jigen,
 				科目番号,
-				calendar: calculateCalendarFromJigen(
+				calendar: calculateScheduleFromJigen(
 					jigen,
-					calcReccurence(year, s.digest.学期)
+					season,
 				),
 				description: convertSyllabusTreeToMarkdown(
 					s.contentTree as any
@@ -253,15 +329,6 @@ const main = async (dumpDir: string) => {
 			}
 		})
 		.filter(<T>(v: T): v is Exclude<T, undefined> => v !== undefined)
-
-	const startDay = SCHEDULE[year][season].start
-	const firstBaseDay = new Date(
-		`${startDay[0]}-${startDay[1]
-			.toString()
-			.padStart(2, "0")}-${startDay[2]
-			.toString()
-			.padStart(2, "0")}T00:00:00+09:00`
-	)
 
 	// TODO: 差分計算に使える情報を入れる (contentTree markdown ?)
 	const persisted: {
@@ -272,31 +339,14 @@ const main = async (dumpDir: string) => {
 	}[] = []
 
 	for (const course of courses) {
-		const setTime = (d: Date, t: Time, dow: number) => {
-			d.setHours(t.hours)
-			d.setMinutes(t.minutes)
-			const diffDate = dow - d.getDay()
-			d.setDate(d.getDate() + (diffDate < 0 ? +7 : 0) + diffDate)
-			return d
-		}
-		const start = setTime(
-			new Date(firstBaseDay),
-			course.calendar.start,
-			course.calendar.dayOfWeek
-		)
-		const end = setTime(
-			new Date(firstBaseDay),
-			course.calendar.end,
-			course.calendar.dayOfWeek
-		)
 		const event = {
 			summary: `${course.科目}`,
 			start: {
-				dateTime: start.toISOString(),
+				dateTime: course.calendar.start.toISOString(),
 				timeZone: "Asia/Tokyo",
 			},
 			end: {
-				dateTime: end.toISOString(),
+				dateTime: course.calendar.end.toISOString(),
 				timeZone: "Asia/Tokyo",
 			},
 			recurrence: [course.calendar.reccurence],
@@ -316,7 +366,7 @@ const main = async (dumpDir: string) => {
 			courseId: course.科目番号,
 			timetableId: course.時間割コード,
 		})
-		console.dir(persisted)
+		console.dir(persisted[persisted.length-1])
 	}
 
 	// TODO: 保存

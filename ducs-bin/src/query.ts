@@ -60,7 +60,7 @@ const matchAll = <T>(actual: T | T[], expected: T | T[]): boolean => {
 	return someMatched
 }
 
-const semesters = ["前学期", "後学期", "通年", "前学期集中", "集中", "後学期集中"] as const
+const semesters = ["前学期", "後学期", "通年", "前学期集中", "集中", "後学期集中", "春ﾀｰﾑ", "夏ﾀｰﾑ", "秋ﾀｰﾑ", "冬ﾀｰﾑ"] as const
 type Semester = typeof semesters[number]
 type QueryFilter = {
 	semester?: Semester | Semester[]
