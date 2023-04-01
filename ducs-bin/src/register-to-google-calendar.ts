@@ -244,12 +244,12 @@ const calculateScheduleFromJigen = (jigen: string[], season: Season): Schedule =
 			.padStart(2, "0")}T00:00:00+09:00`
 	)
 	const start = setTime(
-		firstBaseDay,
+		new Date(firstBaseDay),
 		schedule.start,
 		schedule.dayOfWeek,
 	)
 	const end = setTime(
-		firstBaseDay,
+		new Date(firstBaseDay),
 		schedule.end,
 		schedule.dayOfWeek,
 	)
@@ -366,7 +366,7 @@ const main = async (dumpDir: string) => {
 			courseId: course.科目番号,
 			timetableId: course.時間割コード,
 		})
-		console.dir(persisted)
+		console.dir(persisted[persisted.length-1])
 	}
 
 	// TODO: 保存
