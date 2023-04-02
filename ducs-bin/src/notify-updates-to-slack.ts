@@ -11,6 +11,7 @@ import {
 } from "./internal"
 
 const SLACK_WEBHOOK_URI = process.env.SLACK_WEBHOOK_URI!
+const DRYRUN = process.env.DRYRUN === "true"
 
 const UPDATED_AT_PATH = {
 	titlePath: [
@@ -35,7 +36,22 @@ const toBlock = (s: ParsedSyllabuses[0], updatedAt: Date) => {
 		],
 		contentKey: "開講年次/Year offered",
 	})
+	const semester = pick(s.contentTree, {
+		titlePath: [
+			"講義概要/Course Information",
+			"科目基礎情報/General Information",
+		],
+		contentKey: "開講学期/Semester(s) offered",
+	})
+	const category = pick(s.contentTree, {
+		titlePath: [
+			"講義概要/Course Information",
+			"科目基礎情報/General Information",
+		],
+		contentKey: "科目区分/Category",
+	})
 	const text = `${s.digest.科目} のシラバスが更新されました`
+	const datetimeString = `${updatedAt.getFullYear()}/${updatedAt.getMonth()+1}/${updatedAt.getDate()} ${updatedAt.getHours().toString().padStart(2, "0")}:${updatedAt.getMinutes().toString().padStart(2, "0")}`
 	return {
 		type: "context",
 		elements: [
@@ -45,7 +61,7 @@ const toBlock = (s: ParsedSyllabuses[0], updatedAt: Date) => {
 			},
 			{
 				type: "mrkdwn",
-				text: `${updatedAt.toLocaleString()} | ${facility} | 開講年次: ${yearOffered} | 時間割コード: ${
+				text: `${datetimeString} | ${facility} | 年次: ${yearOffered} | 学期: ${semester} | 区分: ${category} | 時間割コード: ${
 					s.digest.時間割コード
 				}`,
 			},
@@ -115,6 +131,10 @@ const main = async (fromDate: Date, endDate: Date, dumpDir: string) => {
 		blocks.push({ block: toBlock(s, updatedAt), updatedAt })
 	}
 	if (!blocks.length) return
+	if (DRYRUN) {
+		console.log(JSON.stringify(blocks, null, 4))
+		return
+	}
 	await postToSlack(
 		blocks
 			.sort((a, b) =>
