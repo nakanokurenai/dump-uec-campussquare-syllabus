@@ -7,8 +7,26 @@ import { ReferSyllabus } from "ducs-lib/dist/campussquare-syllabus/search"
 import { parseSyllabusPageHTML } from "ducs-lib/dist/campussquare-syllabus/parse"
 
 const DIGEST_SCHEMA = $.obj({
-	学期: $.literal<["前学期", "後学期", "春ﾀｰﾑ", "夏ﾀｰﾑ", "秋ﾀｰﾑ", "冬ﾀｰﾑ"]>("前学期", "後学期", "春ﾀｰﾑ", "夏ﾀｰﾑ", "秋ﾀｰﾑ", "冬ﾀｰﾑ"),
-	開講: $.literal("前学期", "後学期", "通年", "前学期集中", "集中", "後学期集中", "春ﾀｰﾑ", "夏ﾀｰﾑ", "秋ﾀｰﾑ", "冬ﾀｰﾑ"),
+	学期: $.literal<["前学期", "後学期", "春ﾀｰﾑ", "夏ﾀｰﾑ", "秋ﾀｰﾑ", "冬ﾀｰﾑ"]>(
+		"前学期",
+		"後学期",
+		"春ﾀｰﾑ",
+		"夏ﾀｰﾑ",
+		"秋ﾀｰﾑ",
+		"冬ﾀｰﾑ"
+	),
+	開講: $.literal(
+		"前学期",
+		"後学期",
+		"通年",
+		"前学期集中",
+		"集中",
+		"後学期集中",
+		"春ﾀｰﾑ",
+		"夏ﾀｰﾑ",
+		"秋ﾀｰﾑ",
+		"冬ﾀｰﾑ"
+	),
 	// TODO: 本当は $.array($.string) にしたい
 	"曜日・時限": $.string,
 	時間割コード: $.string,

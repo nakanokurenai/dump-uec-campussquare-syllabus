@@ -51,7 +51,15 @@ const toBlock = (s: ParsedSyllabuses[0], updatedAt: Date) => {
 		contentKey: "科目区分/Category",
 	})
 	const text = `${s.digest.科目} のシラバスが更新されました`
-	const datetimeString = `${updatedAt.getFullYear()}/${updatedAt.getMonth()+1}/${updatedAt.getDate()} ${updatedAt.getHours().toString().padStart(2, "0")}:${updatedAt.getMinutes().toString().padStart(2, "0")}`
+	const datetimeString = `${updatedAt.getFullYear()}/${
+		updatedAt.getMonth() + 1
+	}/${updatedAt.getDate()} ${updatedAt
+		.getHours()
+		.toString()
+		.padStart(2, "0")}:${updatedAt
+		.getMinutes()
+		.toString()
+		.padStart(2, "0")}`
 	return {
 		type: "context",
 		elements: [
@@ -61,9 +69,7 @@ const toBlock = (s: ParsedSyllabuses[0], updatedAt: Date) => {
 			},
 			{
 				type: "mrkdwn",
-				text: `${datetimeString} | ${facility} | 年次: ${yearOffered} | 学期: ${semester} | 区分: ${category} | 時間割コード: ${
-					s.digest.時間割コード
-				}`,
+				text: `${datetimeString} | ${facility} | 年次: ${yearOffered} | 学期: ${semester} | 区分: ${category} | 時間割コード: ${s.digest.時間割コード}`,
 			},
 		],
 	}

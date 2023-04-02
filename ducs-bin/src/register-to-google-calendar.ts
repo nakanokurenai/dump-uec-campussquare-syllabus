@@ -111,7 +111,7 @@ const SCHEDULE = {
 			start: [2023, 10, 2],
 			end: [2024, 2, 10],
 		},
-	}
+	},
 } as const
 
 type Values<T> = T extends object ? T[keyof T] : T
@@ -119,7 +119,10 @@ type Values<T> = T extends object ? T[keyof T] : T
 type SeasonKey = "前学期" | "後学期" | "春ﾀｰﾑ" | "夏ﾀｰﾑ" | "秋ﾀｰﾑ" | "冬ﾀｰﾑ"
 type Season = Values<Values<typeof SCHEDULE>>
 
-const seasonFromYearSeason = (y: keyof typeof SCHEDULE, g: SeasonKey): Season => {
+const seasonFromYearSeason = (
+	y: keyof typeof SCHEDULE,
+	g: SeasonKey
+): Season => {
 	switch (g) {
 		case "春ﾀｰﾑ":
 		case "夏ﾀｰﾑ":
@@ -153,7 +156,10 @@ type Schedule = {
 	end: Date
 	reccurence: string
 }
-const calculateScheduleFromJigen = (jigen: string[], season: Season): Schedule => {
+const calculateScheduleFromJigen = (
+	jigen: string[],
+	season: Season
+): Schedule => {
 	// JavaScript の day of week
 	const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"]
 	const fromTimeString = (s: string): Time => {
@@ -246,12 +252,12 @@ const calculateScheduleFromJigen = (jigen: string[], season: Season): Schedule =
 	const start = setTime(
 		new Date(firstBaseDay),
 		schedule.start,
-		schedule.dayOfWeek,
+		schedule.dayOfWeek
 	)
 	const end = setTime(
 		new Date(firstBaseDay),
 		schedule.end,
-		schedule.dayOfWeek,
+		schedule.dayOfWeek
 	)
 
 	return {
@@ -319,10 +325,7 @@ const main = async (dumpDir: string) => {
 				...s.digest,
 				"曜日・時限": jigen,
 				科目番号,
-				calendar: calculateScheduleFromJigen(
-					jigen,
-					season,
-				),
+				calendar: calculateScheduleFromJigen(jigen, season),
 				description: convertSyllabusTreeToMarkdown(
 					s.contentTree as any
 				),
@@ -366,7 +369,7 @@ const main = async (dumpDir: string) => {
 			courseId: course.科目番号,
 			timetableId: course.時間割コード,
 		})
-		console.dir(persisted[persisted.length-1])
+		console.dir(persisted[persisted.length - 1])
 	}
 
 	// TODO: 保存
